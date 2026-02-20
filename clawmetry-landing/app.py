@@ -159,7 +159,7 @@ label{display:block;color:var(--muted);font-size:13px;margin-bottom:4px;margin-t
 {% for cat, msg in get_flashed_messages(with_categories=true) %}
 <div class="flash flash-{{ cat }}">{{ msg }}</div>
 {% endfor %}
-{{ content }}
+{{ content|safe }}
 </div>
 </body></html>
 """
