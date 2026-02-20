@@ -460,13 +460,26 @@ def _get_visitor_info(req):
 
 
 def _format_source(utm, referer):
-    if not utm:
-        if referer and referer != "Direct": return f"Referer: {referer}"
-        return "Direct / Unknown"
-    source = utm.get("utm_source",""); medium = utm.get("utm_medium",""); campaign = utm.get("utm_campaign","")
-    if utm.get("gclid") or utm.get("gad_source"): return f"Google Ads ({campaign})" if campaign else "Google Ads"
-    if utm.get("fbclid"): return "Facebook/Meta Ads"
-    if source: return " / ".join(filter(None, [source, medium, campaign]))
+    # Try to detect source from UTM params first
+    if utm:
+        source = utm.get("utm_source",""); medium = utm.get("utm_medium",""); campaign = utm.get("utm_campaign","")
+        if utm.get("gclid") or utm.get("gad_source"): return f"🔵 Google Ads" + (f" ({campaign})" if campaign else "")
+        if utm.get("fbclid"): return "📘 Facebook/Meta Ads"
+        if source: return " / ".join(filter(None, [source, medium, campaign]))
+    # Fallback: parse referer URL for known patterns
+    ref = referer or ""
+    if "gclid=" in ref or "gad_source=" in ref: return "🔵 Google Ads"
+    if "fbclid=" in ref: return "📘 Facebook/Meta Ads"
+    if "google.com" in ref: return "🔍 Google (organic)"
+    if "bing.com" in ref: return "🔍 Bing (organic)"
+    if "twitter.com" in ref or "x.com" in ref: return "🐦 X/Twitter"
+    if "linkedin.com" in ref: return "💼 LinkedIn"
+    if "reddit.com" in ref: return "🟠 Reddit"
+    if "producthunt.com" in ref: return "🔼 Product Hunt"
+    if "github.com" in ref: return "🐙 GitHub"
+    if "youtube.com" in ref: return "▶️ YouTube"
+    if "hacker" in ref.lower() or "ycombinator" in ref: return "🟧 Hacker News"
+    if ref and ref != "Direct": return f"🌐 {ref[:60]}"
     return "Direct / Unknown"
 
 
