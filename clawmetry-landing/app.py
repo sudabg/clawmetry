@@ -826,9 +826,13 @@ def webhook_email():
     body_html = payload.get("html", "")
     body_text = payload.get("text", payload.get("plain_text", ""))
 
+    # Extract Message-ID for threading
+    message_id = payload.get("message_id", "") or payload.get("headers", {}).get("message-id", "")
+
     email_data = {
         "from_email": from_email, "from_name": from_name, "to_email": to_email,
         "subject": subject, "body_html": body_html, "body_text": body_text,
+        "message_id": message_id,
         "received_at": _now_iso(), "read": 0, "replied": 0,
     }
     if not _fs_add("emails_received", email_data):
@@ -949,23 +953,45 @@ def admin_view_email(eid):
         _fs_update("emails_received", eid, {"read": 1})
     replies = _fs_query("emails_sent", "in_reply_to", "==", eid, order_by="sent_at", order_dir="ASCENDING") or []
 
-    replies_html = ""
-    for r in replies:
-        replies_html += f'<div class="card" style="margin-top:12px;border-left:3px solid var(--accent)"><p style="color:var(--muted);font-size:12px">Reply sent to {r.get("to_email","")} at {r.get("sent_at","")}</p><div style="margin-top:8px">{r.get("body_html","")}</div></div>'
-
     body = e.get("body_html") or f'<pre style="white-space:pre-wrap;color:var(--text)">{e.get("body_text") or "(empty)"}</pre>'
+
+    # Build conversation thread
+    thread_html = f"""
+    <div class="card" style="border-left:3px solid var(--muted)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="background:var(--border);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:14px">📨</span>
+        <div><strong>{e.get("from_name","") or e.get("from_email","")}</strong>
+        <span style="color:var(--muted);font-size:12px;margin-left:8px">{e.get("received_at","")}</span></div>
+      </div>
+      <div class="email-body">{body}</div>
+    </div>"""
+
+    for r in replies:
+        thread_html += f"""
+    <div class="card" style="margin-top:8px;border-left:3px solid var(--accent)">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="background:var(--accent);border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:14px;color:#fff">↩</span>
+        <div><strong>You</strong> → {r.get("to_email","")}
+        <span style="color:var(--muted);font-size:12px;margin-left:8px">{r.get("sent_at","")}</span></div>
+      </div>
+      <div style="padding:0 8px">{r.get("body_html","")}</div>
+    </div>"""
 
     html = f"""
     <p><a href="/admin/inbox" class="btn btn-outline" style="margin-bottom:16px">← Back to Inbox</a></p>
-    <div class="card">
-      <p style="color:var(--muted);font-size:13px">From: <strong style="color:var(--text)">{e.get("from_name","") or ""} &lt;{e.get("from_email","")}&gt;</strong></p>
-      <p style="color:var(--muted);font-size:13px">To: {e.get("to_email","")}</p>
-      <p style="color:var(--muted);font-size:13px">Date: {e.get("received_at","")}</p>
-      <h2 style="margin:12px 0">{e.get("subject","")}</h2>
-      <div class="email-body">{body}</div>
-      <a href="/admin/inbox/{eid}/reply" class="btn btn-primary">↩ Reply</a>
+    <div style="margin-bottom:16px">
+      <p style="color:var(--muted);font-size:13px">From: <strong style="color:var(--text)">{e.get("from_name","") or ""} &lt;{e.get("from_email","")}&gt;</strong> · To: {e.get("to_email","")}</p>
+      <h2 style="margin:8px 0">{e.get("subject","")}</h2>
     </div>
-    {replies_html}
+    <h3 style="color:var(--muted);font-size:14px;margin-bottom:12px">Conversation ({1 + len(replies)} messages)</h3>
+    {thread_html}
+    <div class="card" style="margin-top:16px">
+      <h3 style="margin-bottom:12px">↩ Quick Reply</h3>
+      <form method="POST" action="/admin/inbox/{eid}/reply">
+        <textarea name="body" rows="6" placeholder="Type your reply..." required style="margin-bottom:12px"></textarea>
+        <button type="submit" class="btn btn-primary">Send Reply</button>
+      </form>
+    </div>
     """
     return _render_admin(e["subject"], html, "inbox")
 
@@ -986,14 +1012,26 @@ def admin_reply_email(eid):
             body_html = body.replace("\n", "<br>")
             subj = e.get("subject", "")
             subject = f"Re: {subj}" if not subj.startswith("Re:") else subj
-            ok, resp = _resend_post("/emails", {
+
+            # Build threading headers
+            email_payload = {
                 "from": FROM_EMAIL, "to": [e.get("from_email","")],
                 "subject": subject, "html": body_html,
-            })
+            }
+            orig_msg_id = e.get("message_id", "")
+            if orig_msg_id:
+                email_payload["headers"] = {
+                    "In-Reply-To": orig_msg_id,
+                    "References": orig_msg_id,
+                }
+
+            ok, resp = _resend_post("/emails", email_payload)
             if ok:
+                resend_id = resp.get("id", "")
                 sent_data = {
                     "to_email": e.get("from_email",""), "subject": subject,
                     "body_html": body_html, "sent_at": _now_iso(), "in_reply_to": eid,
+                    "resend_id": resend_id,
                 }
                 _fs_add("emails_sent", sent_data)
                 _fs_update("emails_received", eid, {"replied": 1})
