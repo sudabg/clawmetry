@@ -437,6 +437,35 @@ def managed_request():
     return jsonify({"ok": True, "message": "Request received! We'll be in touch."})
 
 
+@app.route("/api/managed-click", methods=["POST"])
+def managed_click():
+    """Track when someone clicks the managed instance CTA."""
+    visitor = _get_visitor_info(request)
+    data = request.get_json(silent=True) or {}
+    utm = data.get("utm", {})
+    source = _format_source(utm, visitor['referer'])
+    try:
+        db = get_db()
+        db.execute("INSERT INTO copy_events (tab, command, source, utm_data, location, ip, browser) VALUES (?,?,?,?,?,?,?)",
+                   ("managed-cta", "Managed instance CTA clicked", source, json.dumps(utm), visitor['location'], visitor['ip'], visitor['user_agent'][:200]))
+        db.commit(); db.close()
+    except Exception as e:
+        log.error(f"[managed-click] db error: {e}")
+    notify_vivek(
+        f"🦞 Managed instance interest! [{source}]",
+        f"""<div style="font-family:sans-serif;max-width:500px;">
+        <h2 style="color:#E5443A;">🦞 Someone wants a managed instance!</h2>
+        <p>A visitor clicked <strong>"Request a managed instance"</strong> on clawmetry.com.</p>
+        <p><strong>Source:</strong> {source}</p>
+        <p><strong>Location:</strong> {visitor['location']}</p>
+        <p><strong>IP:</strong> {visitor['ip']}</p>
+        <p><strong>Browser:</strong> {visitor['user_agent'][:120]}</p>
+        <p style="color:#9ca3af;font-size:13px;">They'll see the form next. Watch for a submission notification.</p>
+        </div>"""
+    )
+    return jsonify({"ok": True})
+
+
 @app.route("/api/copy-track", methods=["POST"])
 def copy_track():
     data = request.get_json(silent=True) or {}

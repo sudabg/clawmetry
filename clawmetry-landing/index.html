@@ -561,7 +561,7 @@ function copyActiveCmd() {
 <script>
 function openManagedModal() {
   document.getElementById('managed-modal').style.display='flex';
-  fetch('/api/copy-track', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tab:'managed-cta',command:'Request a managed instance clicked',utm:window._utm||{}})}).catch(function(){});
+  fetch('/api/managed-click', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({utm:window._utm||{}})}).catch(function(){});
 }
 document.getElementById('managed-form').addEventListener('submit', function(e) {
   e.preventDefault();
