@@ -120,7 +120,9 @@ def init_db():
     db.commit()
     db.close()
 
-init_db()
+# Only init SQLite if Firestore unavailable (fallback for public API writes)
+if not _firestore_available:
+    init_db()
 
 # ─── Firestore Storage Layer ────────────────────────────────────────────────
 
@@ -819,25 +821,14 @@ def admin_logout():
 def admin_dashboard():
     resend_contacts = get_all_contacts()
 
-    if _firestore_available:
-        subs = len(resend_contacts) or (_fs_count("subscribers") or 0)
-        emails_count = _fs_count("emails_received") or 0
-        unread_list = _fs_query("emails_received", "read", "==", 0)
-        unread = len(unread_list) if unread_list else 0
-        events_count = _fs_count("copy_events") or 0
-        sent_count = _fs_count("emails_sent") or 0
-        recent_emails = _fs_get_all("emails_received", order_by="received_at", limit=5) or []
-        recent_subs = _fs_get_all("subscribers", order_by="subscribed_at", limit=5) or []
-    else:
-        db = get_db()
-        subs = len(resend_contacts) or db.execute("SELECT COUNT(*) c FROM subscribers").fetchone()["c"]
-        emails_count = db.execute("SELECT COUNT(*) c FROM emails_received").fetchone()["c"]
-        unread = db.execute("SELECT COUNT(*) c FROM emails_received WHERE read=0").fetchone()["c"]
-        events_count = db.execute("SELECT COUNT(*) c FROM copy_events").fetchone()["c"]
-        sent_count = db.execute("SELECT COUNT(*) c FROM emails_sent").fetchone()["c"]
-        recent_emails = [dict(r) for r in db.execute("SELECT id, from_email, from_name, subject, received_at, read FROM emails_received ORDER BY id DESC LIMIT 5").fetchall()]
-        recent_subs = [dict(r) for r in db.execute("SELECT email, source, location, subscribed_at FROM subscribers ORDER BY id DESC LIMIT 5").fetchall()]
-        db.close()
+    subs = len(resend_contacts) or (_fs_count("subscribers") or 0)
+    emails_count = _fs_count("emails_received") or 0
+    unread_list = _fs_query("emails_received", "read", "==", 0)
+    unread = len(unread_list) if unread_list else 0
+    events_count = _fs_count("copy_events") or 0
+    sent_count = _fs_count("emails_sent") or 0
+    recent_emails = _fs_get_all("emails_received", order_by="received_at", limit=5) or []
+    recent_subs = _fs_get_all("subscribers", order_by="subscribed_at", limit=5) or []
 
     rows_emails = ""
     for e in recent_emails:
@@ -869,12 +860,7 @@ def admin_dashboard():
 @app.route("/admin/inbox")
 @login_required
 def admin_inbox():
-    if _firestore_available:
-        emails = _fs_get_all("emails_received", order_by="received_at") or []
-    else:
-        db = get_db()
-        emails = [dict(r) for r in db.execute("SELECT id, from_email, from_name, subject, received_at, read, replied FROM emails_received ORDER BY id DESC").fetchall()]
-        db.close()
+    emails = _fs_get_all("emails_received", order_by="received_at") or []
 
     if not emails:
         html = '<h2 style="margin-bottom:20px">Inbox</h2><div class="card"><p class="empty">No emails received yet. Send one to hello@clawmetry.com!</p></div>'
@@ -897,27 +883,12 @@ def admin_inbox():
 @app.route("/admin/inbox/<eid>")
 @login_required
 def admin_view_email(eid):
-    if _firestore_available:
-        e = _fs_get("emails_received", eid)
-        if not e:
-            return redirect("/admin/inbox")
-        if not e.get("read"):
-            _fs_update("emails_received", eid, {"read": 1})
-        # Get replies for this email
-        replies = _fs_query("emails_sent", "in_reply_to", "==", eid, order_by="sent_at", order_dir="ASCENDING") or []
-    else:
-        db = get_db()
-        row = db.execute("SELECT * FROM emails_received WHERE id=?", (eid,)).fetchone()
-        if not row:
-            db.close()
-            return redirect("/admin/inbox")
-        e = dict(row)
-        e["id"] = eid
-        if not e["read"]:
-            db.execute("UPDATE emails_received SET read=1 WHERE id=?", (eid,))
-            db.commit()
-        replies = [dict(r) for r in db.execute("SELECT * FROM emails_sent WHERE in_reply_to=? ORDER BY id", (str(eid),)).fetchall()]
-        db.close()
+    e = _fs_get("emails_received", eid)
+    if not e:
+        return redirect("/admin/inbox")
+    if not e.get("read"):
+        _fs_update("emails_received", eid, {"read": 1})
+    replies = _fs_query("emails_sent", "in_reply_to", "==", eid, order_by="sent_at", order_dir="ASCENDING") or []
 
     replies_html = ""
     for r in replies:
@@ -945,15 +916,7 @@ def admin_view_email(eid):
 def admin_reply_email(eid):
     from flask import flash
 
-    if _firestore_available:
-        e = _fs_get("emails_received", eid)
-    else:
-        db = get_db()
-        row = db.execute("SELECT * FROM emails_received WHERE id=?", (eid,)).fetchone()
-        e = dict(row) if row else None
-        if e:
-            e["id"] = eid
-        db.close()
+    e = _fs_get("emails_received", eid)
 
     if not e:
         return redirect("/admin/inbox")
@@ -973,11 +936,7 @@ def admin_reply_email(eid):
                     "to_email": e.get("from_email",""), "subject": subject,
                     "body_html": body_html, "sent_at": _now_iso(), "in_reply_to": eid,
                 }
-                if not _fs_add("emails_sent", sent_data):
-                    db2 = get_db()
-                    db2.execute("INSERT INTO emails_sent (to_email, subject, body_html, in_reply_to) VALUES (?,?,?,?)",
-                               (e.get("from_email",""), subject, body_html, str(eid)))
-                    db2.commit(); db2.close()
+                _fs_add("emails_sent", sent_data)
                 _fs_update("emails_received", eid, {"replied": 1})
                 flash("Reply sent!", "success")
             else:
@@ -1012,10 +971,7 @@ def admin_compose():
             ok, resp = _resend_post("/emails", {"from": FROM_EMAIL, "to": [to], "subject": subject, "html": body_html})
             if ok:
                 sent_data = {"to_email": to, "subject": subject, "body_html": body_html, "sent_at": _now_iso(), "in_reply_to": ""}
-                if not _fs_add("emails_sent", sent_data):
-                    db = get_db()
-                    db.execute("INSERT INTO emails_sent (to_email, subject, body_html) VALUES (?,?,?)", (to, subject, body_html))
-                    db.commit(); db.close()
+                _fs_add("emails_sent", sent_data)
                 flash("Email sent!", "success")
                 return redirect("/admin/compose")
             else:
@@ -1038,12 +994,7 @@ def admin_compose():
 @app.route("/admin/sent")
 @login_required
 def admin_sent():
-    if _firestore_available:
-        emails = _fs_get_all("emails_sent", order_by="sent_at") or []
-    else:
-        db = get_db()
-        emails = [dict(r) for r in db.execute("SELECT * FROM emails_sent ORDER BY id DESC").fetchall()]
-        db.close()
+    emails = _fs_get_all("emails_sent", order_by="sent_at") or []
     rows = ""
     for e in emails:
         rows += f'<tr><td>{e.get("to_email","")}</td><td>{e.get("subject","")}</td><td>{e.get("sent_at","")}</td></tr>'
@@ -1059,13 +1010,8 @@ def admin_sent():
 def admin_subscribers():
     resend_contacts = get_all_contacts()
 
-    if _firestore_available:
-        fs_subs = _fs_get_all("subscribers", order_by="subscribed_at") or []
-        local_subs = {s.get("email","").lower(): s for s in fs_subs}
-    else:
-        db = get_db()
-        local_subs = {s["email"]: dict(s) for s in db.execute("SELECT * FROM subscribers ORDER BY id DESC").fetchall()}
-        db.close()
+    fs_subs = _fs_get_all("subscribers", order_by="subscribed_at") or []
+    local_subs = {s.get("email","").lower(): s for s in fs_subs}
 
     if not resend_contacts and not local_subs:
         html = '<h2>Subscribers</h2><div class="card"><p class="empty">No subscribers yet</p></div>'
@@ -1092,12 +1038,7 @@ def admin_subscribers():
 @app.route("/admin/events")
 @login_required
 def admin_events():
-    if _firestore_available:
-        events = _fs_get_all("copy_events", order_by="created_at") or []
-    else:
-        db = get_db()
-        events = [dict(r) for r in db.execute("SELECT * FROM copy_events ORDER BY id DESC").fetchall()]
-        db.close()
+    events = _fs_get_all("copy_events", order_by="created_at") or []
 
     if not events:
         html = '<h2>Copy Events</h2><div class="card"><p class="empty">No events yet</p></div>'
@@ -1118,15 +1059,7 @@ def admin_events():
 @app.route("/admin/managed")
 @login_required
 def admin_managed():
-    if _firestore_available:
-        reqs = _fs_get_all("managed_requests", order_by="created_at") or []
-    else:
-        db = get_db()
-        try:
-            reqs = [dict(r) for r in db.execute("SELECT * FROM managed_requests ORDER BY id DESC").fetchall()]
-        except Exception:
-            reqs = []
-        db.close()
+    reqs = _fs_get_all("managed_requests", order_by="created_at") or []
 
     if not reqs:
         html = '<h2>Managed Requests</h2><div class="card"><p class="empty">No managed instance requests yet</p></div>'
