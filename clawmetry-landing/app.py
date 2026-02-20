@@ -333,7 +333,7 @@ def subscribe():
         db.commit(); db.close()
 
         notify_vivek(
-            f"🎉 NEW SUBSCRIBER — {email}!",
+            f"🎉 [New Subscriber] {email}",
             f"""<div style="font-family:sans-serif;max-width:500px;text-align:center;">
             <div style="font-size:64px;margin:20px 0;">🎉</div>
             <h1 style="color:#E5443A;font-size:28px;margin:0 0 8px;">New ClawMetry Subscriber!</h1>
@@ -400,7 +400,7 @@ def managed_request():
 
     # Notify Vivek — celebratory!
     notify_vivek(
-        f"🎉 NEW SIGNUP — Managed Instance Request from {name}!",
+        f"🎉 [New Signup] Managed Instance Request from {name}!",
         f"""<div style="font-family:sans-serif;max-width:500px;text-align:center;">
         <div style="font-size:64px;margin:20px 0;">🎉</div>
         <h1 style="color:#E5443A;font-size:28px;margin:0 0 8px;">New Managed Instance Signup!</h1>
