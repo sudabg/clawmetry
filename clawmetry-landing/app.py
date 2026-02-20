@@ -705,8 +705,12 @@ def managed_click():
     data = _decrypt_payload(request)
     utm = data.get("utm", {})
     source = _format_source(utm, visitor['referer'])
+    click_source = data.get("source", "")  # 'support' if from support modal
+    is_support = click_source == "support"
+    evt_label = "Support CTA clicked" if is_support else "Managed instance CTA clicked"
+    evt_tab = "support-cta" if is_support else "managed-cta"
     evt = {
-        "tab": "managed-cta", "command": "Managed instance CTA clicked",
+        "tab": evt_tab, "command": evt_label,
         "source": source, "utm_data": json.dumps(utm),
         "location": visitor['location'], "ip": visitor['ip'],
         "browser": visitor['user_agent'][:200], "created_at": _now_iso(),
@@ -724,12 +728,15 @@ def managed_click():
     id_email = identity.get("email", "")
     id_line = f"<p style='margin:4px 0;'><strong>Known as:</strong> {id_name} &lt;{id_email}&gt;</p>" if id_email else "<p style='margin:4px 0;color:#999;'>Anonymous visitor</p>"
     subject_who = f" — {id_name or id_email}" if id_email else ""
+    click_emoji = "🤝" if is_support else "👀"
+    click_label = "Support" if is_support else "Managed Instance"
+    click_desc = "free onboarding support form" if is_support else "managed instance form"
     notify_vivek(
-        f"👀 [Click] Managed Instance{subject_who}",
+        f"{click_emoji} [Click] {click_label}{subject_who}",
         f"""<div style="font-family:sans-serif;max-width:500px;text-align:center;">
-        <div style="font-size:48px;margin:16px 0;">👀</div>
-        <h2 style="color:#666;font-size:20px;">Managed Instance CTA Clicked</h2>
-        <p style="color:#999;">A visitor opened the managed instance form on clawmetry.com</p>
+        <div style="font-size:48px;margin:16px 0;">{click_emoji}</div>
+        <h2 style="color:#666;font-size:20px;">{click_label} CTA Clicked</h2>
+        <p style="color:#999;">A visitor opened the {click_desc} on clawmetry.com</p>
         <div style="background:#f8f9fa;border-radius:8px;padding:14px;text-align:left;margin:12px 0;">
         {id_line}
         <p style="margin:4px 0;"><strong>Source:</strong> {source}</p>
