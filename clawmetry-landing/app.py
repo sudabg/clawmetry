@@ -454,17 +454,23 @@ def managed_click():
         db.commit(); db.close()
     except Exception as e:
         log.error(f"[managed-click] db error: {e}")
+    identity = data.get("identity", {})
+    id_name = identity.get("name", "")
+    id_email = identity.get("email", "")
+    id_line = f"<p style='margin:4px 0;'><strong>Known as:</strong> {id_name} &lt;{id_email}&gt;</p>" if id_email else "<p style='margin:4px 0;color:#999;'>Anonymous visitor</p>"
+    subject_who = f" — {id_name or id_email}" if id_email else ""
     notify_vivek(
-        f"👀 [Click] Managed Instance — someone opened the form",
+        f"👀 [Click] Managed Instance{subject_who}",
         f"""<div style="font-family:sans-serif;max-width:500px;text-align:center;">
         <div style="font-size:48px;margin:16px 0;">👀</div>
         <h2 style="color:#666;font-size:20px;">Managed Instance CTA Clicked</h2>
         <p style="color:#999;">A visitor opened the managed instance form on clawmetry.com</p>
         <div style="background:#f8f9fa;border-radius:8px;padding:14px;text-align:left;margin:12px 0;">
+        {id_line}
         <p style="margin:4px 0;"><strong>Source:</strong> {source}</p>
         <p style="margin:4px 0;"><strong>Location:</strong> {visitor['location']}</p>
         </div>
-        <p style="color:#aaa;font-size:12px;">Watch for a 🎉 NEW SIGNUP email if they submit the form.</p>
+        <p style="color:#aaa;font-size:12px;">Watch for a 🎉 [New Signup] email if they submit the form.</p>
         </div>"""
     )
     return jsonify({"ok": True})
@@ -486,14 +492,18 @@ def copy_track():
     except Exception as e:
         log.error(f"[copy-track] db error: {e}")
 
+    identity = data.get("identity", {})
+    id_email = identity.get("email", "")
+    id_name = identity.get("name", "")
+    who = f" by {id_name or id_email}" if id_email else ""
     notify_vivek(
-        f"🦞 Install command copied ({tab}) [{source}]",
+        f"🦞 [Install Copy] {tab}{who} [{source}]",
         f"""<div style="font-family:sans-serif;max-width:500px;">
         <h2>Install Command Copied!</h2>
+        {f"<p><strong>👤 User:</strong> {id_name} &lt;{id_email}&gt;</p>" if id_email else "<p><strong>👤 User:</strong> Anonymous</p>"}
         <p><strong>Tab:</strong> {tab}</p><p><strong>Command:</strong> <code>{command}</code></p>
         <p style="font-size:18px;color:#E5443A;"><strong>Source:</strong> {source}</p>
         <p><strong>Location:</strong> {visitor['location']}</p>
-        <p><strong>IP:</strong> {visitor['ip']}</p>
         </div>"""
     )
     return jsonify({"ok": True})

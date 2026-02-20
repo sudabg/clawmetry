@@ -509,7 +509,7 @@ function copyActiveCmd() {
   navigator.clipboard.writeText(cmds[activeTab]);
   if (typeof gtag === 'function') { gtag('event', 'ads_conversion_Sign_Up_1'); }
   // Notify backend about copy event
-  var copyData={tab: activeTab, command: cmds[activeTab]};
+  var copyData={tab: activeTab, command: cmds[activeTab], identity:_getIdentity()};
   var utm=getUtmParams();
   if(Object.keys(utm).length>1)copyData.utm=utm;
   fetch('/api/copy-track', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(copyData)}).catch(function(){});
@@ -559,9 +559,12 @@ function copyActiveCmd() {
   </div>
 </div>
 <script>
+function _getIdentity(){try{return JSON.parse(localStorage.getItem('_clm_id')||'{}');}catch(e){return {};}}
+function _setIdentity(name,email){try{localStorage.setItem('_clm_id',JSON.stringify({name:name||'',email:email||'',ts:Date.now()}));}catch(e){}}
 function openManagedModal() {
   document.getElementById('managed-modal').style.display='flex';
-  fetch('/api/managed-click', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({utm:window._utm||{}})}).catch(function(){});
+  var id=_getIdentity();
+  fetch('/api/managed-click', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({utm:window._utm||{},identity:id})}).catch(function(){});
 }
 document.getElementById('managed-form').addEventListener('submit', function(e) {
   e.preventDefault();
@@ -579,6 +582,7 @@ document.getElementById('managed-form').addEventListener('submit', function(e) {
     })
   }).then(function(r) { return r.json(); }).then(function(d) {
     if (d.ok) {
+      _setIdentity(document.getElementById('managed-name').value, document.getElementById('managed-email').value);
       document.getElementById('managed-form').innerHTML = '<div style="text-align:center;padding:20px 0;"><div style="font-size:40px;margin-bottom:12px;">✅</div><h3 style="font-size:18px;margin-bottom:8px;">Thanks! We\'ll be in touch.</h3><p style="color:var(--text-muted);font-size:14px;">We\'ll review your request and get back to you within 24-48 hours.</p></div>';
     } else {
       msg.style.display = 'block'; msg.style.color = '#E5443A';
@@ -778,7 +782,7 @@ document.getElementById('subscribe-form').addEventListener('submit',function(e){
   fetch('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
     msg.textContent=d.ok?'Thanks! We\'ll keep you posted. \u{1F99E}':'Something went wrong. Try again.';
     msg.style.color=d.ok?'#28c840':'#E5443A';
-    if(d.ok)document.getElementById('sub-email').value='';
+    if(d.ok){_setIdentity('',email);document.getElementById('sub-email').value='';}
   }).catch(function(){
     msg.textContent='Something went wrong. Try again.';
     msg.style.color='#E5443A';
