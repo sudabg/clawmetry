@@ -1048,8 +1048,13 @@ def _build_thread(e):
                 "id": r.get("id", ""),
             })
 
-    # Sort chronologically
-    thread.sort(key=lambda x: x["timestamp"] or "")
+    # Sort chronologically — normalize timestamps to strings for comparison
+    def _ts_key(x):
+        t = x.get("timestamp", "")
+        if hasattr(t, "isoformat"):
+            return t.isoformat()
+        return str(t) if t else ""
+    thread.sort(key=_ts_key)
     return thread
 
 
