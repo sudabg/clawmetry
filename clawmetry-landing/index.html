@@ -11,6 +11,7 @@
     gtag('js', new Date());
     gtag('config', 'G-XDF9MFD8FJ');
     gtag('config', 'G-6H5W9Y2B79');
+    gtag('config', 'AW-11343567971');
   </script>
   <!-- Google Ads conversion tracking -->
   <script>
@@ -631,7 +632,7 @@ document.getElementById('support-form').addEventListener('submit', function(e) {
   _setIdentity(data.name, data.email);
   _encPost('/api/support-request', data).then(function(r){
     if(r.ok){
-      document.getElementById('support-form').innerHTML='<div style="text-align:center;padding:20px 0;"><div style="font-size:40px;margin-bottom:12px;">🤝</div><h3 style="font-size:18px;margin-bottom:8px;">We\'ll be in touch!</h3><p style="color:var(--text-muted);font-size:14px;">Expect a reply within a few hours. We\'re here to help.</p></div>';
+      document.getElementById('support-form').innerHTML='<div style="text-align:center;padding:20px 0;"><div style="font-size:40px;margin-bottom:12px;">✅</div><h3 style="font-size:18px;margin-bottom:8px;">Request received!</h3><p style="color:var(--text-muted);font-size:14px;">We\'ll help you get ClawMetry running. Expect a reply within a few hours. No catch, no upsell.</p></div>';
     } else { msg.textContent='Something went wrong. Try again.'; msg.style.display='block'; msg.style.color='#ef4444'; btn.textContent='Get Help'; btn.disabled=false; }
   }).catch(function(){msg.textContent='Network error.'; msg.style.display='block'; msg.style.color='#ef4444'; btn.textContent='Get Help'; btn.disabled=false;});
 });
