@@ -24,3 +24,4 @@
 !.well-known/**
 !app.py
 !requirements.txt
+!traction.html
