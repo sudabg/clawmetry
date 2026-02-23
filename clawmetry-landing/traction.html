@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClawMetry Traction, Live Metrics</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0a; color: #e0e0e0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    a { color: #e0e0e0; text-decoration: none; }
+    
+    /* Nav */
+    nav { border-bottom: 1px solid #1a1a1a; padding: 16px 0; }
+    .nav-inner { max-width: 1100px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; }
+    .nav-logo { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 700; }
+    .nav-logo span:first-child { color: #fff; }
+    .nav-logo span:last-child { color: #ff6b6b; }
+    .nav-links { display: flex; gap: 24px; align-items: center; }
+    .nav-links a { color: #888; font-size: 14px; transition: color 0.2s; }
+    .nav-links a:hover { color: #fff; }
+    .nav-links a.active { color: #ff6b6b; }
+    
+    /* Hero */
+    .hero { text-align: center; padding: 60px 24px 40px; }
+    .hero h1 { font-size: 42px; font-weight: 700; margin-bottom: 12px; }
+    .hero h1 span { color: #ff6b6b; }
+    .hero p { color: #888; font-size: 18px; max-width: 600px; margin: 0 auto; }
+    .live-badge { display: inline-flex; align-items: center; gap: 6px; background: #0d2818; color: #4ade80; font-size: 13px; padding: 4px 12px; border-radius: 20px; margin-bottom: 20px; }
+    .live-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    
+    /* Sections */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 24px 60px; }
+    .section { margin-bottom: 48px; }
+    .section-title { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #666; margin-bottom: 20px; }
+    
+    /* Metric Grid */
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+    .metric-card { background: #111; border: 1px solid #1a1a1a; border-radius: 12px; padding: 24px; transition: border-color 0.2s; }
+    .metric-card:hover { border-color: #333; }
+    .metric-number { font-size: 36px; font-weight: 700; color: #fff; margin-bottom: 4px; }
+    .metric-number.accent { color: #ff6b6b; }
+    .metric-number.green { color: #4ade80; }
+    .metric-label { font-size: 14px; color: #666; }
+    .metric-sub { font-size: 12px; color: #444; margin-top: 6px; }
+    
+    /* Timeline */
+    .timeline { margin-top: 48px; }
+    .timeline-item { display: flex; gap: 16px; padding: 16px 0; border-bottom: 1px solid #1a1a1a; }
+    .timeline-date { min-width: 80px; color: #666; font-size: 14px; font-weight: 500; }
+    .timeline-text { color: #ccc; font-size: 14px; }
+    
+    /* Footer */
+    .footer { text-align: center; padding: 40px 24px; color: #444; font-size: 13px; border-top: 1px solid #1a1a1a; }
+    
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 28px; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .metric-number { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a href="/" class="nav-logo">
+      <span style="font-size:26px;">🦞</span>
+      <span>Claw</span><span>metry</span>
+    </a>
+    <div class="nav-links">
+      <a href="/">Home</a>
+      <a href="https://github.com/vivekchand/clawmetry" target="_blank">GitHub</a>
+      <a href="/traction" class="active">Traction</a>
+    </div>
+  </div>
+</nav>
+
+<div class="hero">
+  <div class="live-badge"><div class="live-dot"></div> Live metrics</div>
+  <h1>ClawMetry <span>Traction</span></h1>
+  <p>Real numbers. No vanity metrics. All data pulled live from PyPI, GitHub, and our backend.</p>
+</div>
+
+<div class="container">
+
+  <div class="section">
+    <div class="section-title">Open Source Traction</div>
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="metric-number accent">{{pypi_month}}</div>
+        <div class="metric-label">PyPI downloads (30 days)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number">{{pypi_week}}</div>
+        <div class="metric-label">PyPI downloads (7 days)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number">{{pypi_day}}</div>
+        <div class="metric-label">PyPI downloads (today)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number">{{gh_stars}}</div>
+        <div class="metric-label">GitHub stars</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number">{{gh_forks}}</div>
+        <div class="metric-label">GitHub forks</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number">{{gh_issues}}</div>
+        <div class="metric-label">Open issues</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Launch Results</div>
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="metric-number green">#5</div>
+        <div class="metric-label">Product Hunt rank (launch day)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number green">198+</div>
+        <div class="metric-label">Product Hunt upvotes</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number">19</div>
+        <div class="metric-label">Days from first commit to #5 PH</div>
+        <div class="metric-sub">First commit: Feb 4, 2026</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Community Demand</div>
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="metric-number accent">{{subscribers}}</div>
+        <div class="metric-label">Email subscribers</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number accent">{{managed_requests}}</div>
+        <div class="metric-label">Managed cloud requests</div>
+        <div class="metric-sub">Before we built it</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number">{{copy_events}}</div>
+        <div class="metric-label">Install commands copied</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Ecosystem Context</div>
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="metric-number" style="color:#ff9f43;">220k+</div>
+        <div class="metric-label">OpenClaw GitHub stars</div>
+        <div class="metric-sub">The platform we monitor</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number" style="color:#ff9f43;">19k</div>
+        <div class="metric-label">PicoClaw GitHub stars</div>
+        <div class="metric-sub">$10 hardware agents</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number" style="color:#ff9f43;">13k</div>
+        <div class="metric-label">NanoClaw GitHub stars</div>
+        <div class="metric-sub">Container-based agent swarms</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-number" style="color:#ff9f43;">0</div>
+        <div class="metric-label">Monitoring tools for this ecosystem</div>
+        <div class="metric-sub">Except ClawMetry</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section timeline">
+    <div class="section-title">Timeline</div>
+    <div class="timeline-item"><div class="timeline-date">Jan 28</div><div class="timeline-text">Installed OpenClaw. Hit the observability wall immediately.</div></div>
+    <div class="timeline-item"><div class="timeline-date">Feb 4</div><div class="timeline-text">First commit to ClawMetry. Built from personal frustration.</div></div>
+    <div class="timeline-item"><div class="timeline-date">Feb 13</div><div class="timeline-text">Open-sourced on GitHub. External PRs started coming in.</div></div>
+    <div class="timeline-item"><div class="timeline-date">Feb 14</div><div class="timeline-text">OpenClaw creator joins OpenAI. Ecosystem accelerates.</div></div>
+    <div class="timeline-item"><div class="timeline-date">Feb 18</div><div class="timeline-text">Product Hunt launch. #5 on the day. 198 upvotes.</div></div>
+    <div class="timeline-item"><div class="timeline-date">Now</div><div class="timeline-text">Building Mac + iOS app, managed cloud, and governance layer.</div></div>
+  </div>
+
+</div>
+
+<div class="footer">
+  Last updated: {{updated_at}} · Data pulled live from PyPI, GitHub API, and Firestore · <a href="https://clawmetry.com" style="color:#ff6b6b;">clawmetry.com</a>
+</div>
+
+</body>
+</html>

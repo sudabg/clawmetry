@@ -1355,3 +1355,79 @@ def static_files(path):
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
+
+# ─── Traction Page ───────────────────────────────────────────────────────────
+
+import time as _time
+
+_traction_cache = {"data": None, "ts": 0}
+
+def _fetch_traction_data():
+    now = _time.time()
+    if _traction_cache["data"] and now - _traction_cache["ts"] < 300:
+        return _traction_cache["data"]
+    
+    import requests as _req
+    
+    data = {}
+    
+    # PyPI
+    try:
+        r = _req.get("https://pypistats.org/api/packages/clawmetry/recent", timeout=5,
+                      headers={"User-Agent": "ClawMetry-Traction/1.0"})
+        if r.ok:
+            j = r.json().get("data", {})
+            data["pypi_day"] = f"{j.get('last_day', 0):,}"
+            data["pypi_week"] = f"{j.get('last_week', 0):,}"
+            data["pypi_month"] = f"{j.get('last_month', 0):,}"
+    except:
+        pass
+    data.setdefault("pypi_day", "...")
+    data.setdefault("pypi_week", "...")
+    data.setdefault("pypi_month", "...")
+    
+    # GitHub
+    try:
+        r = _req.get("https://api.github.com/repos/vivekchand/clawmetry", timeout=5,
+                      headers={"User-Agent": "ClawMetry-Traction/1.0"})
+        if r.ok:
+            j = r.json()
+            data["gh_stars"] = f"{j.get('stargazers_count', 0):,}"
+            data["gh_forks"] = f"{j.get('forks_count', 0):,}"
+            data["gh_issues"] = f"{j.get('open_issues_count', 0):,}"
+    except:
+        pass
+    data.setdefault("gh_stars", "...")
+    data.setdefault("gh_forks", "...")
+    data.setdefault("gh_issues", "...")
+    
+    # Firestore counts
+    try:
+        data["subscribers"] = str(_fs_count("subscribers") or 0)
+    except:
+        data["subscribers"] = "..."
+    try:
+        data["managed_requests"] = str(_fs_count("managed_requests") or 0)
+    except:
+        data["managed_requests"] = "..."
+    try:
+        data["copy_events"] = str(_fs_count("copy_events") or 0)
+    except:
+        data["copy_events"] = "..."
+    
+    from datetime import datetime, timezone
+    data["updated_at"] = datetime.now(timezone.utc).strftime("%b %d, %Y at %H:%M UTC")
+    
+    _traction_cache["data"] = data
+    _traction_cache["ts"] = now
+    return data
+
+
+@app.route("/traction")
+def traction_page():
+    data = _fetch_traction_data()
+    with open(os.path.join(os.path.dirname(__file__), "traction.html")) as f:
+        html = f.read()
+    for key, val in data.items():
+        html = html.replace("{{" + key + "}}", val)
+    return html
