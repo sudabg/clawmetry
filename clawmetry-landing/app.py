@@ -1421,6 +1421,7 @@ if __name__ == "__main__":
 import time as _time
 
 _traction_cache = {"data": None, "ts": 0}
+_last_known = {}  # persists last successful API values across cache misses
 
 def _fetch_traction_data():
     now = _time.time()
@@ -1433,18 +1434,21 @@ def _fetch_traction_data():
     
     # PyPI
     try:
-        r = _req.get("https://pypistats.org/api/packages/clawmetry/recent", timeout=5,
+        r = _req.get("https://pypistats.org/api/packages/clawmetry/recent", timeout=10,
                       headers={"User-Agent": "ClawMetry-Traction/1.0"})
         if r.ok:
             j = r.json().get("data", {})
             data["pypi_day"] = f"{j.get('last_day', 0):,}"
             data["pypi_week"] = f"{j.get('last_week', 0):,}"
             data["pypi_month"] = f"{j.get('last_month', 0):,}"
+            _last_known["pypi_day"] = data["pypi_day"]
+            _last_known["pypi_week"] = data["pypi_week"]
+            _last_known["pypi_month"] = data["pypi_month"]
     except:
         pass
-    data.setdefault("pypi_day", "...")
-    data.setdefault("pypi_week", "...")
-    data.setdefault("pypi_month", "...")
+    data.setdefault("pypi_day", _last_known.get("pypi_day", "..."))
+    data.setdefault("pypi_week", _last_known.get("pypi_week", "..."))
+    data.setdefault("pypi_month", _last_known.get("pypi_month", "..."))
     
     # GitHub
     try:
