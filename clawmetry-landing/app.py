@@ -58,7 +58,7 @@ def _ai_personalize_reply(name: str, message: str, help_type: str) -> dict:
             "https://api.anthropic.com/v1/messages",
             headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
             json={"model": "claude-sonnet-4-6", "max_tokens": 80, "messages": [{"role": "user", "content": prompt}]},
-            timeout=8,
+            timeout=3,
         )
         if resp.status_code == 200:
             import json as _json
@@ -68,6 +68,65 @@ def _ai_personalize_reply(name: str, message: str, help_type: str) -> dict:
     except Exception as e:
         log.warning(f"[ai-email] failed: {e}")
     return None
+
+
+def _bg_send_managed_email(name, email, use_case):
+    """Send managed request confirmation email in background thread."""
+    try:
+        ai = _ai_personalize_reply(name, use_case, "managed")
+        ai_q = ai.get("question") if ai else None
+        ai_s = ai.get("subject") if ai else None
+        uc_block = (f'<div style="background:#1a1a2e;border-left:3px solid #555;padding:10px 14px;margin:12px 0;font-size:14px;color:#9ca3af;font-style:italic;">You mentioned: {use_case}</div>' if use_case else '')
+        _resend_post("/emails", {
+            "from": FROM_EMAIL, "to": [email], "bcc": ["vivek@clawmetry.com"],
+            "reply_to": ["vivek@clawmetry.com"],
+            "subject": ai_s or "Quick question about your OpenClaw setup",
+            "html": f'''<div style="font-family:sans-serif;max-width:500px;margin:0 auto;background:#0d0d14;color:#e0e0e0;border-radius:12px;overflow:hidden;">
+  <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:32px 28px;text-align:center;">
+    <div style="font-size:28px;margin-bottom:8px;">🦞</div>
+    <h1 style="color:#fff;font-size:20px;margin:0;">Thanks, {name}!</h1>
+  </div>
+  <div style="padding:28px;">
+    <p style="font-size:15px;line-height:1.7;color:#d1d5db;">Thanks for your interest in a managed ClawMetry setup, really appreciate it.</p>
+    {uc_block}
+    <p style="font-size:15px;line-height:1.7;color:#d1d5db;">We are currently building it out and want to make sure it solves the right problems.</p>
+    <div style="background:#111827;border-left:3px solid #E5443A;border-radius:4px;padding:14px 18px;margin:16px 0;">
+      {('<p style="margin:0;font-size:14px;color:#f3f4f6;">' + ai_q + '</p>') if ai_q else '<p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>1.</strong> How are you running OpenClaw right now? (Mac mini, old laptop, VPS?)</p><p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>2.</strong> What is the biggest pain you face managing it?</p><p style="margin:0;font-size:14px;color:#f3f4f6;"><strong>3.</strong> Would you be open to trying our beta very soon?</p>'}
+    </div>
+    <p style="font-size:15px;line-height:1.7;color:#d1d5db;">Just reply here, takes 2 minutes.</p>
+    <p style="font-size:15px;color:#d1d5db;">Vivek<br><span style="color:#9ca3af;font-size:13px;">Founder, ClawMetry</span></p>
+  </div>
+</div>'''
+        })
+    except Exception as e:
+        log.error(f"[managed-email-bg] {e}")
+
+
+def _bg_send_support_email(name, email, message, help_type):
+    """Send support request confirmation email in background thread."""
+    try:
+        ai = _ai_personalize_reply(name, message, help_type)
+        ai_q = ai.get("question") if ai else None
+        ai_s = ai.get("subject") if ai else None
+        display_name = name or "there"
+        msg_block = (f'<div style="background:#f5f5f5;border-left:3px solid #ccc;padding:10px 14px;margin:12px 0;font-size:14px;color:#555;font-style:italic;">You said: {message}</div>' if message else '')
+        _resend_post("/emails", {
+            "from": FROM_EMAIL, "to": email, "bcc": ["vivek@clawmetry.com"],
+            "reply_to": ["vivek@clawmetry.com"],
+            "subject": ai_s or "Quick question before I set up ClawMetry for you",
+            "html": (
+                f'<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;max-width:520px;margin:0 auto;">' +
+                f'<p style="font-size:15px;color:#111;line-height:1.7;">Hi {display_name},</p>' +
+                f'<p style="font-size:15px;color:#111;line-height:1.7;">Thanks for reaching out! I got your request and will personally get back to you shortly to help you get ClawMetry set up.</p>' +
+                msg_block +
+                f'<p style="font-size:15px;color:#111;line-height:1.7;">{ai_q or "Quick question first: where are you running OpenClaw? Mac mini, old laptop, a VPS like Hostinger or Railway, or still planning to try it?"}</p>' +
+                f'<p style="font-size:15px;color:#111;line-height:1.7;">Either way I can help, just want to make sure the setup guide I send actually fits your situation.</p>' +
+                f'<p style="font-size:15px;color:#111;margin-top:20px;">Vivek<br><span style="color:#888;font-size:13px;">Founder, ClawMetry &middot; <a href=&quot;https://clawmetry.com&quot; style=&quot;color:#E5443A;text-decoration:none;&quot;>clawmetry.com</a></span></p>' +
+                f'</div>'
+            )
+        })
+    except Exception as e:
+        log.error(f"[support-email-bg] {e}")
 
 @app.before_request
 def enforce_https():
