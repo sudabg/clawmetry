@@ -641,7 +641,7 @@ def managed_request():
                 <h1 style="color:#fff;font-size:20px;margin:0;">Thanks, {name}!</h1>
               </div>
               <div style="padding:28px;">
-                <p style="font-size:15px;line-height:1.7;color:#d1d5db;">Thanks for your interest in the managed setup, really appreciate it.</p>
+                <p style="font-size:15px;line-height:1.7;color:#d1d5db;">Thanks for your interest in a managed ClawMetry setup, really appreciate it.</p>
                 <p style="font-size:15px;line-height:1.7;color:#d1d5db;">We are currently building it out and want to make sure it solves the right problems. A few quick questions:</p>
                 <div style="background:#111827;border-left:3px solid #E5443A;border-radius:4px;padding:14px 18px;margin:16px 0;">
                   <p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>1.</strong> How are you running OpenClaw right now?<br><span style="color:#9ca3af;font-size:13px;">(Mac mini, old laptop, a VPS, or something else?)</span></p>
@@ -719,11 +719,11 @@ def support_request():
         }, json={
             "from": FROM_EMAIL, "to": email, "bcc": ["hello@clawmetry.com"],
             "reply_to": ["vivek@clawmetry.com"],
-            "subject": "Quick question before I set you up",
+            "subject": "Quick question before I set up ClawMetry for you",
             "html": (
                 f'<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;max-width:520px;margin:0 auto;">' +
                 f'<p style="font-size:15px;color:#111;line-height:1.7;">Hey {display_name},</p>' +
-                f'<p style="font-size:15px;color:#111;line-height:1.7;">Really glad you reached out, happy to help you get set up.</p>' +
+                f'<p style="font-size:15px;color:#111;line-height:1.7;">Really glad you reached out, happy to help you get ClawMetry set up.</p>' +
                 f'<p style="font-size:15px;color:#111;line-height:1.7;">Quick question first: where are you running OpenClaw? Mac mini, old laptop, a VPS like Hostinger or Railway, or still planning to try it?</p>' +
                 f'<p style="font-size:15px;color:#111;line-height:1.7;">Either way I can help, just want to make sure the setup guide I send actually fits your situation.</p>' +
                 f'<p style="font-size:15px;color:#111;margin-top:20px;">Vivek<br><span style="color:#888;font-size:13px;">Founder, ClawMetry &middot; <a href=&quot;https://clawmetry.com&quot; style=&quot;color:#E5443A;text-decoration:none;&quot;>clawmetry.com</a></span></p>' +
