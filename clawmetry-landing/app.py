@@ -437,7 +437,7 @@ def _resend_get(path):
 def send_welcome_email(email):
     subject = "Welcome to ClawMetry \U0001f99e"
     ok, resp = _resend_post("/emails", {
-        "from": FROM_EMAIL, "to": [email], "bcc": ["hello@clawmetry.com"],
+        "from": FROM_EMAIL, "to": [email], "bcc": ["vivek@clawmetry.com"],
         "subject": subject, "html": WELCOME_HTML,
     })
     # Store in emails_sent so it shows in thread view
@@ -632,7 +632,7 @@ def managed_request():
     # Send confirmation to requester
     try:
         _resend_post("/emails", {
-            "from": FROM_EMAIL, "to": [email], "bcc": ["hello@clawmetry.com"],
+            "from": FROM_EMAIL, "to": [email], "bcc": ["vivek@clawmetry.com"],
             "reply_to": ["vivek@clawmetry.com"],
             "subject": "Quick question about your OpenClaw setup",
             "html": f"""<div style="font-family:sans-serif;max-width:500px;margin:0 auto;background:#0d0d14;color:#e0e0e0;border-radius:12px;overflow:hidden;">
@@ -717,7 +717,7 @@ def support_request():
         requests.post("https://api.resend.com/emails", headers={
             "Authorization": f"Bearer {RESEND_API_KEY}", "Content-Type": "application/json"
         }, json={
-            "from": FROM_EMAIL, "to": email, "bcc": ["hello@clawmetry.com"],
+            "from": FROM_EMAIL, "to": email, "bcc": ["vivek@clawmetry.com"],
             "reply_to": ["vivek@clawmetry.com"],
             "subject": "Quick question before I set up ClawMetry for you",
             "html": (
