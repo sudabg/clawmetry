@@ -647,7 +647,7 @@ def managed_request():
                   <p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>2.</strong> What is your rough monthly AI spend right now?</p>
                   <p style="margin:0;font-size:14px;color:#f3f4f6;"><strong>3.</strong> When are you looking to get started?</p>
                 </div>
-                <p style="margin:0;font-size:13px;color:#9ca3af;">Just reply here &mdash; takes 60 seconds.</p>
+                <p style="margin:0;font-size:13px;color:#9ca3af;">Just reply here, takes 30 seconds.</p>
                 <p style="font-size:15px;color:#d1d5db;">Vivek<br><span style="color:#9ca3af;font-size:13px;">Founder, ClawMetry</span></p>
               </div>
             </div>"""
@@ -722,9 +722,9 @@ def support_request():
             "html": (
                 f'<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;max-width:520px;margin:0 auto;">' +
                 f'<p style="font-size:15px;color:#111;line-height:1.7;">Hey {display_name},</p>' +
-                f'<p style="font-size:15px;color:#111;line-height:1.7;">Really glad you reached out &mdash; happy to help you get set up personally.</p>' +
-                f'<p style="font-size:15px;color:#111;line-height:1.7;">Quick question first: where are you running OpenClaw? For example: Mac mini, old laptop, a VPS like Hostinger or Railway &mdash; or are you still planning to try it?</p>' +
-                f'<p style="font-size:15px;color:#111;line-height:1.7;">Either way I can help &mdash; just want to make sure the setup guide I send actually fits your situation.</p>' +
+                f'<p style="font-size:15px;color:#111;line-height:1.7;">Really glad you reached out, happy to help you get set up personally.</p>' +
+                f'<p style="font-size:15px;color:#111;line-height:1.7;">Quick question first: where are you running OpenClaw? For example: Mac mini, old laptop, a VPS like Hostinger or Railway, or still planning to try it?</p>' +
+                f'<p style="font-size:15px;color:#111;line-height:1.7;">Either way I can help, just want to make sure the setup guide I send actually fits your situation.</p>' +
                 f'<p style="font-size:15px;color:#111;margin-top:20px;">Vivek<br><span style="color:#888;font-size:13px;">Founder, ClawMetry &middot; <a href=&quot;https://clawmetry.com&quot; style=&quot;color:#E5443A;text-decoration:none;&quot;>clawmetry.com</a></span></p>' +
                 f'</div>'
             )
