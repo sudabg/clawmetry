@@ -634,20 +634,21 @@ def managed_request():
         _resend_post("/emails", {
             "from": FROM_EMAIL, "to": [email], "bcc": ["hello@clawmetry.com"],
             "reply_to": ["vivek@clawmetry.com"],
-            "subject": "A few quick questions about your managed ClawMetry setup",
+            "subject": "Quick question about your OpenClaw setup",
             "html": f"""<div style="font-family:sans-serif;max-width:500px;margin:0 auto;background:#0d0d14;color:#e0e0e0;border-radius:12px;overflow:hidden;">
               <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:32px 28px;text-align:center;">
                 <div style="font-size:28px;margin-bottom:8px;">🦞</div>
                 <h1 style="color:#fff;font-size:20px;margin:0;">Thanks, {name}!</h1>
               </div>
               <div style="padding:28px;">
-                <p style="font-size:15px;line-height:1.7;color:#d1d5db;">I look at every managed request personally. Three quick questions so I can come back with a concrete proposal rather than a generic pitch:</p>
+                <p style="font-size:15px;line-height:1.7;color:#d1d5db;">Thanks for your interest in the managed setup, really appreciate it.</p>
+                <p style="font-size:15px;line-height:1.7;color:#d1d5db;">We are currently building it out and want to make sure it solves the right problems. A few quick questions:</p>
                 <div style="background:#111827;border-left:3px solid #E5443A;border-radius:4px;padding:14px 18px;margin:16px 0;">
-                  <p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>1.</strong> How many people or agents will you be monitoring?</p>
-                  <p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>2.</strong> What is your rough monthly AI spend right now?</p>
-                  <p style="margin:0;font-size:14px;color:#f3f4f6;"><strong>3.</strong> When are you looking to get started?</p>
+                  <p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>1.</strong> How are you running OpenClaw right now?<br><span style="color:#9ca3af;font-size:13px;">(Mac mini, old laptop, a VPS, or something else?)</span></p>
+                  <p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>2.</strong> What is the biggest pain you face managing it?</p>
+                  <p style="margin:0;font-size:14px;color:#f3f4f6;"><strong>3.</strong> Would you be open to trying our beta when it is ready, very soon?</p>
                 </div>
-                <p style="margin:0;font-size:13px;color:#9ca3af;">Just reply here, takes 30 seconds.</p>
+                <p style="font-size:15px;line-height:1.7;color:#d1d5db;">Just reply here, takes 2 minutes and helps us build exactly what you need.</p>
                 <p style="font-size:15px;color:#d1d5db;">Vivek<br><span style="color:#9ca3af;font-size:13px;">Founder, ClawMetry</span></p>
               </div>
             </div>"""
