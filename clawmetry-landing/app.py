@@ -28,12 +28,27 @@ def _ai_personalize_reply(name: str, message: str, help_type: str) -> str:
     if not ANTHROPIC_API_KEY or not message or not message.strip():
         return None
     try:
+        clawmetry_context = (
+            "ClawMetry is an open-source real-time observability dashboard for OpenClaw (224k+ GitHub stars). "
+            "OpenClaw is a self-hosted AI agent framework — connects to Telegram, WhatsApp, Discord etc. "
+            "ClawMetry installs in 30 seconds (pip install clawmetry) and auto-detects OpenClaw on the same machine. "
+            "It shows: live token usage and cost per session, all tool calls, cron job history, "
+            "sub-agent activity, memory files, session transcripts, and configurable cost alerts. "
+            "Works with any AI model: Claude, GPT-4, Gemini, or local models via Ollama. "
+            "Runs on the same machine as OpenClaw: Mac mini, old laptop, VPS, Railway, Hostinger etc. "
+            "Managed tier = hosted ClawMetry in the cloud, no infra to manage. "
+            "Common pain points: surprise token bills, agent loops draining budget, no sub-agent visibility, "
+            "cron jobs failing silently, no audit trail for enterprise use."
+        )
+        req_type = "managed instance request" if help_type == "managed" else "onboarding support request"
         prompt = (
-            f"A user named {name or 'someone'} submitted a ClawMetry onboarding support request. "
-            f"ClawMetry is an open-source observability dashboard for OpenClaw AI agents. "
+            f"You are Vivek, founder of ClawMetry. A user named {name or 'someone'} submitted a {req_type}. "
+            f"ClawMetry context: {clawmetry_context} "
             f"Their message: \"{message.strip()}\". "
-            f"Write ONE short, friendly follow-up question (max 25 words) directly relevant to what they said. "
-            f"Goal: understand their setup so we can help. No em dashes. Start with Quick question:"
+            f"Write ONE short, warm follow-up question (max 30 words) directly relevant to their message. "
+            f"Use the ClawMetry context to ask something intelligent and specific to their situation. "
+            f"No em dashes. Sound like a founder who genuinely wants to help. "
+            f"Start naturally — Quick question: or just ask directly."
         )
         resp = requests.post(
             "https://api.anthropic.com/v1/messages",
