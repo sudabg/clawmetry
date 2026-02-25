@@ -11544,9 +11544,21 @@ def main():
     parser.add_argument('--fleet-api-key', type=str, help='API key for multi-node fleet authentication. Also via CLAWMETRY_FLEET_KEY env.')
     parser.add_argument('--fleet-db', type=str, help='Path to fleet SQLite database file.')
     parser.add_argument('--version', '-v', action='version', version=f'clawmetry {__version__}')
+    parser.add_argument('--base-path', type=str, default='',
+                        help='Base URL path prefix for reverse proxy (e.g. /clawmetry). Also via CLAWMETRY_BASE_PATH env.')
 
     args = parser.parse_args()
     detect_config(args)
+
+    # Sub-path support for reverse proxy deployments (e.g. Railway, nginx)
+    base_path = args.base_path or os.environ.get('CLAWMETRY_BASE_PATH', '')
+    if base_path:
+        if not base_path.startswith('/'):
+            base_path = '/' + base_path
+        os.environ['SCRIPT_NAME'] = base_path
+        from werkzeug.middleware.proxy_fix import ProxyFix
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_prefix=1)
+
 
     # Parse --monitor-service flags
     global EXTRA_SERVICES, MC_URL
