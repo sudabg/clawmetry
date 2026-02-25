@@ -21,6 +21,32 @@ app = Flask(__name__, static_folder=".", static_url_path="")
 
 
 
+
+def _ai_personalize_reply(name: str, message: str, help_type: str) -> str:
+    """Generate a personalised follow-up question using Claude based on what the user said.
+    Returns a single sentence or None on failure/empty message."""
+    if not ANTHROPIC_API_KEY or not message or not message.strip():
+        return None
+    try:
+        prompt = (
+            f"A user named {name or 'someone'} submitted a ClawMetry onboarding support request. "
+            f"ClawMetry is an open-source observability dashboard for OpenClaw AI agents. "
+            f"Their message: \"{message.strip()}\". "
+            f"Write ONE short, friendly follow-up question (max 25 words) directly relevant to what they said. "
+            f"Goal: understand their setup so we can help. No em dashes. Start with Quick question:"
+        )
+        resp = requests.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={"x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+            json={"model": "claude-haiku-4-5", "max_tokens": 80, "messages": [{"role": "user", "content": prompt}]},
+            timeout=8,
+        )
+        if resp.status_code == 200:
+            return resp.json()["content"][0]["text"].strip()
+    except Exception as e:
+        log.warning(f"[ai-email] failed: {e}")
+    return None
+
 @app.before_request
 def enforce_https():
     if request.headers.get("X-Forwarded-Proto", "https") == "http":
@@ -41,6 +67,7 @@ UPDATES_EMAIL = "ClawMetry Updates <updates@clawmetry.com>"
 NOTIFY_SECRET = os.environ.get("NOTIFY_SECRET", "clawmetry-notify-2026")
 
 VIVEK_EMAIL = "vivekchand19@gmail.com"
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 CLM_KEY = "clm2026"
 
 # ─── Firestore Setup ────────────────────────────────────────────────────────
@@ -715,6 +742,7 @@ def support_request():
     except Exception as e:
         log.error(f"[support-request] notification email error: {e}")
 
+    ai_question = _ai_personalize_reply(name, message, help_type)
     # Send confirmation email to requester
     try:
         display_name = name or "there"
@@ -729,7 +757,7 @@ def support_request():
                 f'<p style="font-size:15px;color:#111;line-height:1.7;">Hi {display_name},</p>' +
                 f'<p style="font-size:15px;color:#111;line-height:1.7;">Thanks for reaching out! I got your request and will personally get back to you shortly to help you get ClawMetry set up.</p>' +
                 (f'<div style="background:#f5f5f5;border-left:3px solid #ccc;padding:10px 14px;margin:12px 0;font-size:14px;color:#555;font-style:italic;">You said: {message}</div>' if message else '') +
-                f'<p style="font-size:15px;color:#111;line-height:1.7;">Quick question first: where are you running OpenClaw? Mac mini, old laptop, a VPS like Hostinger or Railway, or still planning to try it?</p>' +
+                f'<p style="font-size:15px;color:#111;line-height:1.7;">{ai_question or "Quick question first: where are you running OpenClaw? Mac mini, old laptop, a VPS like Hostinger or Railway, or still planning to try it?"}</p>' +
                 f'<p style="font-size:15px;color:#111;line-height:1.7;">Either way I can help, just want to make sure the setup guide I send actually fits your situation.</p>' +
                 f'<p style="font-size:15px;color:#111;margin-top:20px;">Vivek<br><span style="color:#888;font-size:13px;">Founder, ClawMetry &middot; <a href=&quot;https://clawmetry.com&quot; style=&quot;color:#E5443A;text-decoration:none;&quot;>clawmetry.com</a></span></p>' +
                 f'</div>'
