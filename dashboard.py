@@ -2156,6 +2156,8 @@ function clawmetryLogout(){
     <div class="nav-tab" onclick="switchTab('memory')">Memory</div>
     <!-- History tab hidden until mature -->
     <!-- <div class="nav-tab" onclick="switchTab('history')">History</div> -->
+    <div class="nav-tab" onclick="switchTab('memory-history')">Memory History</div>
+    <div class="nav-tab" onclick="switchTab('tasks-history')">Tasks</div>
   </div>
 </div>
 
@@ -2584,6 +2586,35 @@ function clawmetryLogout(){
     </div>
   </div>
 </div>
+
+<!-- MEMORY HISTORY -->
+<div class="page" id="page-memory-history">
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+    <h2 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0;">&#129488; Memory History</h2>
+    <div style="display:flex;gap:4px;">
+      <button class="time-btn active" id="mh-btn-1" onclick="loadMemoryHistory(1)">Today</button>
+      <button class="time-btn" id="mh-btn-3" onclick="loadMemoryHistory(3)">3 days</button>
+      <button class="time-btn" id="mh-btn-7" onclick="loadMemoryHistory(7)">7 days</button>
+    </div>
+    <button class="refresh-btn" onclick="loadMemoryHistory(_mhDays)" style="margin-left:auto;">&#8635; Refresh</button>
+  </div>
+  <div id="memory-history-list" class="card" style="padding:16px;">Loading...</div>
+</div>
+
+<!-- TASKS HISTORY -->
+<div class="page" id="page-tasks-history">
+  <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
+    <h2 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0;">&#129302; Tasks History</h2>
+    <div style="display:flex;gap:4px;">
+      <button class="time-btn active" id="th-btn-1" onclick="loadTasksHistory(1)">Today</button>
+      <button class="time-btn" id="th-btn-3" onclick="loadTasksHistory(3)">3 days</button>
+      <button class="time-btn" id="th-btn-7" onclick="loadTasksHistory(7)">7 days</button>
+    </div>
+    <button class="refresh-btn" onclick="loadTasksHistory(_thDays)" style="margin-left:auto;">&#8635; Refresh</button>
+  </div>
+  <div id="tasks-history-list" class="card" style="padding:16px;">Loading...</div>
+</div>
+
 
 <!-- FLOW -->
 <div class="page" id="page-flow">
@@ -3022,6 +3053,8 @@ function switchTab(name) {
   if (name === 'transcripts') loadTranscripts();
   if (name === 'flow') initFlow();
   if (name === 'history') loadHistory();
+  if (name === 'memory-history') loadMemoryHistory();
+  if (name === 'tasks-history') loadTasksHistory(1);
 }
 
 function exportUsageData() {
@@ -6886,7 +6919,166 @@ async function bootDashboard() {
   try { startHealthStream(); } catch (e) {}
   setBootStep('streams', 'done', 'Live streams connected');
 
-  // Pre-fetch crons and memory so they're ready when tabs are clicked
+  // ── Memory History ─────────────────────────────────────────────────────
+var _mhDays = 1;
+function loadMemoryHistory(days) {
+  _mhDays = days || _mhDays;
+  ['1','3','7'].forEach(function(d) {
+    var b = document.getElementById('mh-btn-' + d);
+    if (b) b.className = 'time-btn' + (String(_mhDays) === d ? ' active' : '');
+  });
+  var el = document.getElementById('memory-history-list');
+  if (!el) return;
+  el.innerHTML = '<span style="color:var(--text-muted)">Loading...</span>';
+  fetch('/api/memory-history?days=' + _mhDays)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.files || data.files.length === 0) {
+        el.innerHTML = '<span style="color:var(--text-muted)">No memory files modified in this period.</span>';
+        return;
+      }
+      var groups = {};
+      data.files.forEach(function(f) {
+        var d = f.day || 'Unknown';
+        if (!groups[d]) groups[d] = [];
+        groups[d].push(f);
+      });
+      var html = '';
+      Object.keys(groups).sort().reverse().forEach(function(day) {
+        html += '<div style="margin-bottom:20px;">';
+        html += '<div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border-secondary);">' + day + '</div>';
+        groups[day].forEach(function(f) {
+          var sizeStr = f.size > 1024 ? (f.size/1024).toFixed(1) + ' KB' : f.size + ' B';
+          var timeStr = f.mtime ? new Date(f.mtime * 1000).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+          var fid = 'mhf-' + f.path.replace(/[^a-z0-9]/gi, '-');
+          html += '<div style="border:1px solid var(--border-primary);border-radius:8px;margin-bottom:8px;overflow:hidden;">';
+          html += '<div onclick="toggleMHFile('' + fid + '','' + f.path + '')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:var(--bg-secondary);">';
+          html += '<span style="font-size:15px;">&#128196;</span>';
+          html += '<span style="font-size:13px;font-weight:600;color:var(--text-primary);flex:1;">' + f.path + '</span>';
+          html += '<span style="font-size:11px;color:var(--text-muted);margin-right:8px;">' + sizeStr + '</span>';
+          html += '<span style="font-size:11px;color:var(--text-muted);">' + timeStr + '</span>';
+          html += '<span style="font-size:11px;color:var(--accent-red);margin-left:8px;">&#9660;</span>';
+          html += '</div>';
+          html += '<div id="' + fid + '" style="display:none;padding:12px 14px;font-size:12px;font-family:monospace;white-space:pre-wrap;color:var(--text-secondary);background:var(--bg-primary);max-height:300px;overflow-y:auto;border-top:1px solid var(--border-primary);">Loading...</div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      });
+      el.innerHTML = html;
+    })
+    .catch(function(e) { el.innerHTML = '<span style="color:var(--text-error)">Error: ' + e + '</span>'; });
+}
+function toggleMHFile(fid, path) {
+  var el = document.getElementById(fid);
+  if (!el) return;
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+    if (el.textContent === 'Loading...') {
+      fetch('/api/file?path=' + encodeURIComponent(path))
+        .then(function(r) { return r.json(); })
+        .then(function(d) { el.textContent = d.content || '(empty)'; })
+        .catch(function() { el.textContent = 'Could not load file.'; });
+    }
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// ── Tasks History ───────────────────────────────────────────────────────
+var _thDays = 1;
+function loadTasksHistory(days) {
+  _thDays = days || _thDays;
+  ['1','3','7'].forEach(function(d) {
+    var b = document.getElementById('th-btn-' + d);
+    if (b) b.className = 'time-btn' + (String(_thDays) === d ? ' active' : '');
+  });
+  var el = document.getElementById('tasks-history-list');
+  if (!el) return;
+  el.innerHTML = '<span style="color:var(--text-muted)">Loading...</span>';
+  fetch('/api/subagents?days=' + _thDays)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var agents = (data.subagents || []).filter(function(a) {
+        if (!a.updatedAt) return false;
+        var cutoff = Date.now() - (_thDays * 86400 * 1000);
+        return a.updatedAt >= cutoff;
+      });
+      if (agents.length === 0) {
+        el.innerHTML = '<span style="color:var(--text-muted)">No tasks in this period.</span>';
+        return;
+      }
+      var groups = {};
+      agents.forEach(function(a) {
+        var d = a.updatedAt ? new Date(a.updatedAt) : null;
+        var label = 'Unknown';
+        if (d) {
+          var now = new Date(); var diff = Math.floor((now - d) / 86400000);
+          if (diff === 0) label = 'Today';
+          else if (diff === 1) label = 'Yesterday';
+          else label = d.toLocaleDateString([], {weekday:'long', month:'short', day:'numeric'});
+        }
+        if (!groups[label]) groups[label] = [];
+        groups[label].push(a);
+      });
+      var html = '';
+      var dayOrder = ['Today','Yesterday'];
+      var otherDays = Object.keys(groups).filter(function(k) { return !dayOrder.includes(k); }).sort().reverse();
+      var orderedDays = dayOrder.filter(function(d) { return groups[d]; }).concat(otherDays);
+      orderedDays.forEach(function(day) {
+        html += '<div style="margin-bottom:20px;">';
+        html += '<div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border-secondary);">' + day + ' <span style="font-weight:400;">(' + groups[day].length + ' tasks)</span></div>';
+        groups[day].forEach(function(a) {
+          var statusColor = a.status === 'active' ? '#22c55e' : a.status === 'idle' ? '#f59e0b' : '#6b7280';
+          var tid = 'th-' + (a.uuid || Math.random().toString(36).substr(2,8));
+          var tools = (a.recentTools || []).slice(0,4).join(', ') || '';
+          var timeStr = a.updatedAt ? new Date(a.updatedAt).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '';
+          html += '<div style="border:1px solid var(--border-primary);border-radius:8px;margin-bottom:8px;overflow:hidden;">';
+          html += '<div onclick="toggleTaskActivity('' + tid + '','' + (a.sessionId||'') + '')" style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;background:var(--bg-secondary);">';
+          html += '<span style="width:8px;height:8px;border-radius:50%;background:' + statusColor + ';flex-shrink:0;"></span>';
+          html += '<span style="font-size:13px;font-weight:600;color:var(--text-primary);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + (a.displayName || a.uuid || 'Unknown') + '</span>';
+          if (tools) html += '<span style="font-size:11px;color:var(--text-muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + tools + '</span>';
+          html += '<span style="font-size:11px;color:var(--text-muted);margin-left:8px;flex-shrink:0;">' + timeStr + '</span>';
+          html += '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:' + statusColor + '22;color:' + statusColor + ';margin-left:6px;flex-shrink:0;">' + a.status + '</span>';
+          html += '</div>';
+          if (a.lastText) {
+            html += '<div style="padding:8px 14px;font-size:12px;color:var(--text-secondary);background:var(--bg-primary);border-top:1px solid var(--border-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + a.lastText.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+          }
+          html += '<div id="' + tid + '" style="display:none;padding:12px 14px;background:var(--bg-primary);border-top:1px solid var(--border-primary);max-height:280px;overflow-y:auto;"><span style="color:var(--text-muted);font-size:12px;">Loading activity...</span></div>';
+          html += '</div>';
+        });
+        html += '</div>';
+      });
+      el.innerHTML = html;
+    })
+    .catch(function(e) { el.innerHTML = '<span style="color:var(--text-error)">Error: ' + e + '</span>'; });
+}
+function toggleTaskActivity(tid, sessionId) {
+  var el = document.getElementById(tid);
+  if (!el) return;
+  if (el.style.display === 'none') {
+    el.style.display = 'block';
+    if (el.querySelector('span')) {
+      fetch('/api/subagent/' + sessionId + '/activity?limit=30')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var msgs = d.messages || d.activity || [];
+          if (!msgs.length) { el.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">No activity recorded.</span>'; return; }
+          var h = '';
+          msgs.slice(-20).forEach(function(m) {
+            var role = m.role || 'system'; var color = role === 'user' ? 'var(--accent-red)' : 'var(--text-muted)';
+            var text = (m.text || m.content || '').toString().replace(/</g,'&lt;').replace(/>/g,'&gt;').substr(0,200);
+            h += '<div style="margin-bottom:6px;font-size:12px;"><span style="color:' + color + ';font-weight:600;margin-right:6px;">' + role + '</span><span style="color:var(--text-secondary);">' + text + '</span></div>';
+          });
+          el.innerHTML = h;
+        })
+        .catch(function() { el.innerHTML = '<span style="color:var(--text-muted);font-size:12px;">Could not load activity.</span>'; });
+    }
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+// Pre-fetch crons and memory so they're ready when tabs are clicked
   try { await loadCrons(); } catch (e) { console.warn('Crons prefetch failed:', e); }
   try { await loadMemory(); } catch (e) { console.warn('Memory prefetch failed:', e); }
 
@@ -8279,6 +8471,38 @@ def api_logs_stream():
 
     return Response(generate(), mimetype='text/event-stream',
                     headers={'Cache-Control': 'no-cache', 'X-Accel-Buffering': 'no'})
+
+
+@app.route('/api/memory-history')
+def api_memory_history():
+    """Return memory files with mtime, filterable by ?days=N (default 7)."""
+    try:
+        days = int(request.args.get('days', 7))
+    except (ValueError, TypeError):
+        days = 7
+    cutoff = time.time() - (days * 86400)
+    workspace = WORKSPACE or os.getcwd()
+    memory_dir = MEMORY_DIR or os.path.join(workspace, 'memory')
+    result = []
+    candidates = []
+    for name in ['MEMORY.md', 'SOUL.md', 'IDENTITY.md', 'USER.md', 'AGENTS.md', 'TOOLS.md', 'HEARTBEAT.md']:
+        path = os.path.join(workspace, name)
+        if os.path.exists(path):
+            candidates.append((name, path))
+    if os.path.isdir(memory_dir):
+        for f in sorted(glob.glob(os.path.join(memory_dir, '*.md')), reverse=True):
+            candidates.append(('memory/' + os.path.basename(f), f))
+    for rel, full in candidates:
+        try:
+            st = os.stat(full)
+            mtime = st.st_mtime
+            if mtime >= cutoff:
+                day = datetime.fromtimestamp(mtime).strftime('%b %d, %Y')
+                result.append({'path': rel, 'size': st.st_size, 'mtime': mtime, 'day': day})
+        except OSError:
+            continue
+    result.sort(key=lambda x: x['mtime'], reverse=True)
+    return jsonify({'files': result, 'days': days})
 
 
 @app.route('/api/memory-files')
