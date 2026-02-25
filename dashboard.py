@@ -2156,7 +2156,7 @@ function clawmetryLogout(){
     <div class="nav-tab" onclick="switchTab('memory')">Memory</div>
     <!-- History tab hidden until mature -->
     <!-- <div class="nav-tab" onclick="switchTab('history')">History</div> -->
-    <div class="nav-tab" onclick="switchTab('memory-history')">Memory History</div>
+    <div class="nav-tab" onclick="switchTab('memory-history')">Brain</div>
     <div class="nav-tab" onclick="switchTab('tasks-history')">Tasks</div>
   </div>
 </div>
@@ -2590,7 +2590,7 @@ function clawmetryLogout(){
 <!-- MEMORY HISTORY -->
 <div class="page" id="page-memory-history">
   <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;flex-wrap:wrap;">
-    <h2 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0;">&#129488; Memory History</h2>
+    <h2 style="font-size:18px;font-weight:700;color:var(--text-primary);margin:0;">&#129488; Brain History</h2>
     <div style="display:flex;gap:4px;">
       <button class="time-btn active" id="mh-btn-1" onclick="loadMemoryHistory(1)">Today</button>
       <button class="time-btn" id="mh-btn-3" onclick="loadMemoryHistory(3)">3 days</button>
