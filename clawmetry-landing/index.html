@@ -847,6 +847,10 @@ document.addEventListener('click', function(e) {
         <label style="display:block;font-size:13px;color:var(--text-muted);margin-bottom:4px;">Company <span style="color:var(--text-dim);font-weight:400;">(optional)</span></label>
         <input type="text" id="managed-company" placeholder="Company name" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;outline:none;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'">
       </div>
+      <div style="margin-bottom:14px;">
+        <label style="display:block;font-size:13px;color:var(--text-muted);margin-bottom:4px;">What do you want to monitor? <span style="color:var(--text-dim);font-weight:400;">(optional)</span></label>
+        <textarea id="managed-usecase" rows="3" placeholder="e.g. I run 5 OpenClaw agents for customer support and want visibility into token costs and failed sessions" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:14px;font-family:inherit;outline:none;resize:vertical;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+      </div>
       <div style="margin-bottom:20px;"></div>
       <button type="submit" id="managed-btn" style="width:100%;padding:12px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-weight:600;font-size:15px;cursor:pointer;transition:all 0.2s;box-shadow:0 0 20px rgba(229,68,58,0.2);">Submit Request</button>
       <p id="managed-msg" style="margin-top:12px;font-size:13px;text-align:center;display:none;"></p>
@@ -929,7 +933,7 @@ document.getElementById('managed-form').addEventListener('submit', function(e) {
       name: document.getElementById('managed-name').value,
       email: document.getElementById('managed-email').value,
       company: document.getElementById('managed-company').value,
-      use_case: ''
+      use_case: document.getElementById('managed-usecase').value
   }).then(function(r) { return r.json(); }).then(function(d) {
     if (d.ok) {
       _setIdentity(document.getElementById('managed-name').value, document.getElementById('managed-email').value);

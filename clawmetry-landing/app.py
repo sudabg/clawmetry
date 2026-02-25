@@ -658,6 +658,7 @@ def managed_request():
         </div>"""
     )
 
+    ai_question_managed = _ai_personalize_reply(name, use_case, "managed")
     use_case_block = (f'<div style="background:#1a1a2e;border-left:3px solid #555;padding:10px 14px;margin:12px 0;font-size:14px;color:#9ca3af;font-style:italic;">You mentioned: {use_case}</div>' if use_case else '')
     # Send confirmation to requester
     try:
@@ -675,9 +676,8 @@ def managed_request():
                 {use_case_block}
                 <p style="font-size:15px;line-height:1.7;color:#d1d5db;">We are currently building it out and want to make sure it solves the right problems. A few quick questions:</p>
                 <div style="background:#111827;border-left:3px solid #E5443A;border-radius:4px;padding:14px 18px;margin:16px 0;">
-                  <p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>1.</strong> How are you running OpenClaw right now?<br><span style="color:#9ca3af;font-size:13px;">(Mac mini, old laptop, a VPS, or something else?)</span></p>
-                  <p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>2.</strong> What is the biggest pain you face managing it?</p>
-                  <p style="margin:0;font-size:14px;color:#f3f4f6;"><strong>3.</strong> Would you be open to trying our beta when it is ready, very soon?</p>
+                  {('<p style="margin:0;font-size:14px;color:#f3f4f6;">' + ai_question_managed + '</p>') if ai_question_managed else ''}
+                  {'<p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>1.</strong> How are you running OpenClaw right now?<br><span style="color:#9ca3af;font-size:13px;">(Mac mini, old laptop, a VPS, or something else?)</span></p><p style="margin:0 0 10px;font-size:14px;color:#f3f4f6;"><strong>2.</strong> What is the biggest pain you face managing it?</p><p style="margin:0;font-size:14px;color:#f3f4f6;"><strong>3.</strong> Would you be open to trying our beta when it is ready, very soon?</p>' if not ai_question_managed else ''}
                 </div>
                 <p style="font-size:15px;line-height:1.7;color:#d1d5db;">Just reply here, takes 2 minutes and helps us build exactly what you need.</p>
                 <p style="font-size:15px;color:#d1d5db;">Vivek<br><span style="color:#9ca3af;font-size:13px;">Founder, ClawMetry</span></p>
