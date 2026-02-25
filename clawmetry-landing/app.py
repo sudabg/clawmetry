@@ -18,6 +18,11 @@ import requests
 from flask import Flask, request, jsonify, send_from_directory, make_response, redirect, url_for, session, render_template_string
 
 app = Flask(__name__, static_folder=".", static_url_path="")
+
+@app.before_request
+def enforce_https():
+    if request.headers.get("X-Forwarded-Proto", "https") == "http":
+        return redirect(request.url.replace("http://", "https://", 1), code=301)
 app.secret_key = os.environ.get("SECRET_KEY", "clawmetry-secret-key-2026-xk9m")
 
 # Force logs to stdout for Cloud Run
