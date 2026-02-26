@@ -3,230 +3,197 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Connect to ClawMetry Cloud</title>
-  <meta name="description" content="Get your ClawMetry API key and connect your OpenClaw instance to the cloud dashboard.">
-  <link rel="canonical" href="https://clawmetry.com/connect">
-  <link rel="icon" href="/favicon.ico">
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XDF9MFD8FJ"></script>
-  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-XDF9MFD8FJ');</script>
+  <title>ClawMetry — Get your API key</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #0B0F1A; --bg-card: #111827; --border: rgba(255,255,255,0.08);
-      --text: #F1F5F9; --text-muted: #94A3B8; --text-dim: #64748B;
-      --accent: #E5443A; --accent-glow: rgba(229,68,58,0.15); --green: #22c55e;
-    }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; -webkit-font-smoothing: antialiased; }
-    a { color: inherit; text-decoration: none; }
-    nav {
-      position: sticky; top: 0; z-index: 100;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 24px; height: 60px;
-      background: rgba(11,15,26,0.85); backdrop-filter: blur(12px);
-      border-bottom: 1px solid var(--border);
-    }
-    .nav-logo { display: flex; align-items: center; gap: 8px; }
-    .nav-logo-text { font-size: 18px; font-weight: 700; letter-spacing: -0.02em; }
-    .nav-logo-text span:last-child { color: var(--accent); }
-    .nav-links { display: flex; align-items: center; gap: 20px; }
-    .nav-links a { color: var(--text-muted); font-size: 14px; font-weight: 500; transition: color 0.2s; }
-    .nav-links a:hover { color: var(--text); }
-    .page { max-width: 560px; margin: 0 auto; padding: 60px 24px 80px; }
-    .hero-badge {
-      display: inline-flex; align-items: center; gap: 6px;
-      background: var(--accent-glow); border: 1px solid rgba(229,68,58,0.2);
-      border-radius: 100px; padding: 4px 14px; margin-bottom: 24px;
-      font-size: 12px; font-weight: 600; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase;
-    }
-    h1 { font-size: 36px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 14px; }
-    h1 span { color: var(--accent); }
-    .subtitle { font-size: 16px; color: var(--text-muted); line-height: 1.6; margin-bottom: 40px; }
-    .card {
-      background: var(--bg-card); border: 1px solid var(--border);
-      border-radius: 18px; padding: 32px;
-    }
-    label { display: block; font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; letter-spacing: 0.02em; text-transform: uppercase; }
-    input {
-      width: 100%; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
-      border-radius: 10px; padding: 12px 16px; font-size: 15px; color: var(--text);
-      outline: none; transition: border-color 0.2s; font-family: inherit; margin-bottom: 20px;
-    }
-    input::placeholder { color: var(--text-dim); }
-    input:focus { border-color: rgba(229,68,58,0.4); }
-    .btn {
-      width: 100%; background: var(--accent); color: #fff;
-      padding: 14px; border-radius: 10px; font-size: 15px; font-weight: 700;
-      border: none; cursor: pointer; font-family: inherit; transition: opacity 0.2s;
-    }
-    .btn:hover { opacity: 0.88; }
+    body { font-family: 'Inter', sans-serif; background: #0B0F1A; color: #e2e8f0; min-height: 100vh; display: flex; flex-direction: column; }
+    nav { padding: 18px 32px; display: flex; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    nav a { text-decoration: none; font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -0.5px; }
+    nav a span { color: #E5443A; }
+    .page { flex: 1; display: flex; align-items: center; justify-content: center; padding: 40px 16px; }
+    .card { background: #131929; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 40px; width: 100%; max-width: 440px; text-align: center; box-shadow: 0 8px 40px rgba(0,0,0,0.4); }
+    .card-icon { font-size: 48px; margin-bottom: 16px; }
+    .card h1 { font-size: 22px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    .card p { font-size: 14px; color: #94a3b8; line-height: 1.6; margin-bottom: 24px; }
+    .input { width: 100%; padding: 12px 16px; border-radius: 8px; border: 1px solid #2d3748; background: #0d1420; color: #e2e8f0; font-size: 15px; outline: none; transition: border-color 0.2s; margin-bottom: 14px; font-family: inherit; }
+    .input:focus { border-color: #E5443A; }
+    .input-otp { font-size: 28px; font-weight: 700; letter-spacing: 12px; text-align: center; padding: 14px; }
+    .btn { width: 100%; padding: 13px; border-radius: 8px; border: none; background: #E5443A; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity 0.2s; font-family: inherit; }
+    .btn:hover { opacity: 0.9; }
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .hint { font-size: 12px; color: var(--text-dim); margin-top: 14px; text-align: center; line-height: 1.6; }
-    .hint a { color: var(--text-muted); text-decoration: underline; }
-    .success-box {
-      display: none; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.25);
-      border-radius: 14px; padding: 28px; text-align: center;
-    }
-    .success-box h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; color: var(--green); }
-    .success-box p { font-size: 14px; color: var(--text-muted); line-height: 1.7; margin-bottom: 20px; }
-    .key-box {
-      background: #0d1117; border: 1px solid rgba(34,197,94,0.2); border-radius: 10px;
-      padding: 14px 16px; font-family: 'JetBrains Mono', monospace;
-      font-size: 13px; color: var(--green); word-break: break-all;
-      text-align: left; margin-bottom: 20px; position: relative;
-    }
-    .copy-btn {
-      background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.2);
-      border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600;
-      color: var(--green); cursor: pointer; font-family: inherit; transition: all 0.2s;
-    }
-    .copy-btn:hover { background: rgba(34,197,94,0.2); }
-    .steps { margin-top: 28px; text-align: left; }
-    .step { display: flex; gap: 12px; margin-bottom: 14px; align-items: flex-start; }
-    .step-num {
-      width: 24px; height: 24px; border-radius: 50%; background: var(--accent);
-      font-size: 12px; font-weight: 700; color: #fff; display: flex; align-items: center;
-      justify-content: center; flex-shrink: 0; margin-top: 1px;
-    }
-    .step-text { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
-    .step-text code { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--accent); background: rgba(229,68,58,0.1); padding: 2px 6px; border-radius: 4px; }
-    .step-text strong { color: var(--text); }
-    .divider { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
-    .how-section { margin-top: 48px; }
-    .how-section h2 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
-    .how-section p { font-size: 14px; color: var(--text-muted); line-height: 1.6; margin-bottom: 20px; }
-    .how-steps { display: flex; flex-direction: column; gap: 16px; }
-    .how-step {
-      display: flex; gap: 16px; background: var(--bg-card);
-      border: 1px solid var(--border); border-radius: 12px; padding: 16px;
-    }
-    .how-icon { font-size: 22px; flex-shrink: 0; }
-    .how-step-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
-    .how-step-desc { font-size: 13px; color: var(--text-muted); line-height: 1.5; }
-    .how-step-desc code { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--accent); background: rgba(229,68,58,0.1); padding: 1px 5px; border-radius: 3px; }
+    .btn-ghost { background: transparent; color: #64748b; font-size: 13px; padding: 8px; margin-top: 8px; }
+    .error { color: #f87171; font-size: 13px; margin-top: 10px; display: none; }
+    .step { display: none; }
+    .step.active { display: block; }
+    /* Key display */
+    .key-box { background: #0d1117; border: 1px solid #1e293b; border-radius: 10px; padding: 18px; margin: 16px 0; position: relative; }
+    .key-text { font-family: 'Courier New', monospace; font-size: 15px; color: #22c55e; word-break: break-all; letter-spacing: 1px; }
+    .copy-btn { position: absolute; top: 10px; right: 10px; background: #1e293b; border: 1px solid #334155; border-radius: 6px; color: #94a3b8; font-size: 12px; padding: 4px 10px; cursor: pointer; }
+    .copy-btn:hover { color: #e2e8f0; }
+    .steps-label { font-size: 13px; font-weight: 600; color: #cbd5e1; margin: 20px 0 10px; text-align: left; }
+    .step-item { display: flex; gap: 12px; align-items: flex-start; text-align: left; margin-bottom: 12px; }
+    .step-num { min-width: 22px; height: 22px; border-radius: 50%; background: #E5443A; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+    .step-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
+    .step-text code { background: #1e293b; padding: 2px 8px; border-radius: 4px; font-size: 12px; color: #e2e8f0; white-space: nowrap; }
+    .open-btn { display: inline-flex; align-items: center; gap: 6px; background: #E5443A; color: #fff; font-weight: 700; font-size: 14px; padding: 12px 28px; border-radius: 8px; text-decoration: none; margin-top: 20px; }
+    .open-btn:hover { opacity: 0.9; }
+    .note { font-size: 12px; color: #475569; margin-top: 14px; }
+    .resend-link { font-size: 13px; color: #64748b; cursor: pointer; margin-top: 10px; display: inline-block; }
+    .resend-link:hover { color: #94a3b8; }
   </style>
 </head>
 <body>
 <nav>
-  <a href="/" class="nav-logo">
-    <span style="font-size:22px">&#x1F99E;</span>
-    <div class="nav-logo-text"><span>Claw</span><span>metry</span></div>
-  </a>
-  <div class="nav-links">
-    <a href="/">Home</a>
-    <a href="/how-it-works">How it works</a>
-    <a href="/roadmap">Roadmap</a>
-    <a href="https://github.com/vivekchand/clawmetry" target="_blank" rel="noopener">GitHub</a>
-  </div>
+  <a href="/">&#x1F99E; Claw<span>metry</span></a>
 </nav>
-
 <div class="page">
-  <div class="hero-badge">Cloud Access</div>
-  <h1>Connect to <span>ClawMetry</span> Cloud</h1>
-  <p class="subtitle">Get your API key and start monitoring your OpenClaw agents from anywhere — no self-hosting required.</p>
+  <div class="card">
 
-  <div class="card" id="form-card">
-    <div style="margin-bottom:20px;">
-      <label>Your email</label>
-      <input type="email" id="email" placeholder="you@example.com">
-      <label>Node name <span style="font-weight:400;text-transform:none;color:var(--text-dim)">(optional)</span></label>
-      <input type="text" id="node-name" placeholder="my-agent-server">
+    <!-- Step 1: Email -->
+    <div id="step1" class="step active">
+      <div class="card-icon">&#x1F99E;</div>
+      <h1>Get your API key</h1>
+      <p>Sign in or create a free account.<br>Takes 30 seconds.</p>
+      <input id="email" class="input" type="email" placeholder="you@example.com" autocomplete="email"
+        onkeydown="if(event.key==='Enter')sendOtp()">
+      <button class="btn" onclick="sendOtp()" id="send-btn">Send code</button>
+      <p id="step1-err" class="error"></p>
     </div>
-    <button class="btn" id="connect-btn" onclick="requestKey()">Get my API key</button>
-    <p class="hint">We will email your key instantly. No password, no credit card. <a href="/docs.html">Read the docs</a></p>
-  </div>
 
-  <div class="success-box" id="success-box">
-    <h2>&#x2705; Your API key is ready</h2>
-    <p>We also emailed it to you. Save this somewhere safe.</p>
-    <div class="key-box" id="key-display"></div>
-    <button class="copy-btn" onclick="copyKey()">Copy key</button>
-    <div class="steps">
-      <div class="step">
+    <!-- Step 2: OTP -->
+    <div id="step2" class="step">
+      <div class="card-icon">&#x1F4EC;</div>
+      <h1>Check your email</h1>
+      <p>Enter the 6-digit code sent to<br><strong id="email-display" style="color:#e2e8f0;"></strong></p>
+      <input id="otp" class="input input-otp" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
+        onkeydown="if(event.key==='Enter')verifyOtp()" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+      <button class="btn" onclick="verifyOtp()" id="verify-btn">Verify</button>
+      <p id="step2-err" class="error"></p>
+      <button class="btn btn-ghost" onclick="goBack()">Back</button>
+      <div>
+        <span id="resend-link" class="resend-link" style="display:none" onclick="sendOtp(true)">Resend code</span>
+        <span id="resend-timer" style="font-size:12px;color:#475569;display:none"></span>
+      </div>
+    </div>
+
+    <!-- Step 3: Success -->
+    <div id="step3" class="step">
+      <div class="card-icon">&#x1F389;</div>
+      <h1>You're all set!</h1>
+      <p>Here is your ClawMetry API key. Keep it safe.</p>
+      <div class="key-box">
+        <div class="key-text" id="key-display"></div>
+        <button class="copy-btn" onclick="copyKey()" id="copy-btn">Copy</button>
+      </div>
+      <div class="steps-label">Next steps</div>
+      <div class="step-item">
         <div class="step-num">1</div>
-        <div class="step-text">Install ClawMetry: <code>pip install clawmetry</code></div>
+        <div class="step-text">If not installed: <code>pip install clawmetry</code></div>
       </div>
-      <div class="step">
+      <div class="step-item">
         <div class="step-num">2</div>
-        <div class="step-text">Run <code>clawmetry connect</code> and paste your key when prompted</div>
+        <div class="step-text">Run on each machine: <code>clawmetry connect --key <span id="key-inline"></span></code></div>
       </div>
-      <div class="step">
+      <div class="step-item">
         <div class="step-num">3</div>
-        <div class="step-text">Open <strong><a href="https://app.clawmetry.com" style="color:var(--accent)">app.clawmetry.com</a></strong> and enter the same key to see your dashboard</div>
+        <div class="step-text">Open your dashboard and sign in with the same email.</div>
       </div>
+      <a href="https://app.clawmetry.com" class="open-btn">Open dashboard &#x2192;</a>
+      <p class="note">Same key works on all your machines. Regenerate anytime from settings.</p>
     </div>
-  </div>
 
-  <hr class="divider">
-
-  <div class="how-section">
-    <h2>How it works</h2>
-    <p>Three steps, one command, zero infrastructure.</p>
-    <div class="how-steps">
-      <div class="how-step">
-        <div class="how-icon">&#x1F511;</div>
-        <div>
-          <div class="how-step-title">Get your key here</div>
-          <div class="how-step-desc">One API key identifies your OpenClaw instance. It never expires unless you revoke it.</div>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="how-icon">&#x1F527;</div>
-        <div>
-          <div class="how-step-title">Run <code>clawmetry connect</code></div>
-          <div class="how-step-desc">This patches your local OpenClaw config to send telemetry to <code>ingest.clawmetry.com</code>. Takes 10 seconds.</div>
-        </div>
-      </div>
-      <div class="how-step">
-        <div class="how-icon">&#x1F4CA;</div>
-        <div>
-          <div class="how-step-title">Open app.clawmetry.com</div>
-          <div class="how-step-desc">Your live dashboard. Every tool call, token cost, sub-agent, and cron job — visible from any browser, anywhere.</div>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
-
 <script>
+var _email = '';
 var _apiKey = '';
-function requestKey() {
+var _resendTimer = null;
+
+function showStep(n) {
+  ['step1','step2','step3'].forEach(function(id,i){ document.getElementById(id).classList.toggle('active', i+1===n); });
+}
+
+function sendOtp(resend) {
   var email = document.getElementById('email').value.trim();
-  var node = document.getElementById('node-name').value.trim();
-  if (!email || !email.includes('@')) {
-    document.getElementById('email').style.borderColor = 'rgba(229,68,58,0.6)';
-    document.getElementById('email').focus();
-    return;
+  if (!resend && (!email || email.indexOf('@') < 0)) {
+    showErr('step1-err','Enter a valid email address.'); return;
   }
-  var btn = document.getElementById('connect-btn');
-  btn.disabled = true; btn.textContent = 'Generating key...';
-  fetch('/api/connect', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({email: email, node_name: node || 'my-agent'})
-  }).then(function(r){ return r.json(); }).then(function(d) {
-    if (d.api_key) {
-      _apiKey = d.api_key;
-      document.getElementById('form-card').style.display = 'none';
-      document.getElementById('key-display').textContent = d.api_key;
-      document.getElementById('success-box').style.display = 'block';
-    } else {
-      btn.disabled = false; btn.textContent = 'Get my API key';
-      alert(d.error || 'Something went wrong. Try again.');
-    }
-  }).catch(function() {
-    btn.disabled = false; btn.textContent = 'Get my API key';
-    alert('Network error. Try again.');
-  });
+  if (!resend) _email = email;
+  hideErr('step1-err');
+  var btn = document.getElementById('send-btn');
+  btn.disabled = true; btn.textContent = 'Sending...';
+  fetch('/api/otp/send', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:_email})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      btn.disabled=false; btn.textContent='Send code';
+      if (d.ok) {
+        document.getElementById('email-display').textContent = _email;
+        showStep(2);
+        document.getElementById('otp').focus();
+        startResendTimer();
+      } else {
+        showErr('step1-err', d.error||'Failed to send code. Try again.');
+      }
+    }).catch(function(){ btn.disabled=false; btn.textContent='Send code'; showErr('step1-err','Network error. Try again.'); });
 }
+
+function verifyOtp() {
+  var otp = document.getElementById('otp').value.trim();
+  hideErr('step2-err');
+  if (!otp || otp.length !== 6) { showErr('step2-err','Enter the 6-digit code.'); return; }
+  var btn = document.getElementById('verify-btn');
+  btn.disabled=true; btn.textContent='Verifying...';
+  fetch('/api/otp/verify', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:_email, otp:otp})})
+    .then(function(r){return r.json();})
+    .then(function(d){
+      btn.disabled=false; btn.textContent='Verify';
+      if (d.ok && d.api_key) {
+        _apiKey = d.api_key;
+        document.getElementById('key-display').textContent = d.api_key;
+        document.getElementById('key-inline').textContent = d.api_key;
+        showStep(3);
+      } else {
+        showErr('step2-err', d.error||'Invalid code. Try again.');
+      }
+    }).catch(function(){ btn.disabled=false; btn.textContent='Verify'; showErr('step2-err','Network error. Try again.'); });
+}
+
+function goBack() {
+  document.getElementById('otp').value='';
+  hideErr('step2-err');
+  clearInterval(_resendTimer);
+  showStep(1);
+}
+
 function copyKey() {
-  navigator.clipboard.writeText(_apiKey).then(function() {
-    var b = document.querySelector('.copy-btn');
-    b.textContent = 'Copied!';
-    setTimeout(function(){ b.textContent = 'Copy key'; }, 2000);
+  navigator.clipboard.writeText(_apiKey).then(function(){
+    var btn = document.getElementById('copy-btn');
+    btn.textContent='Copied!'; setTimeout(function(){ btn.textContent='Copy'; }, 2000);
   });
 }
+
+function startResendTimer() {
+  var secs = 30;
+  var timerEl = document.getElementById('resend-timer');
+  var linkEl = document.getElementById('resend-link');
+  linkEl.style.display='none'; timerEl.style.display='';
+  timerEl.textContent='Resend in ' + secs + 's';
+  clearInterval(_resendTimer);
+  _resendTimer = setInterval(function(){
+    secs--;
+    if (secs <= 0) {
+      clearInterval(_resendTimer);
+      timerEl.style.display='none'; linkEl.style.display='';
+    } else {
+      timerEl.textContent='Resend in '+secs+'s';
+    }
+  }, 1000);
+}
+
+function showErr(id, msg) { var e=document.getElementById(id); e.textContent=msg; e.style.display=''; }
+function hideErr(id) { var e=document.getElementById(id); e.style.display='none'; }
 </script>
 </body>
 </html>
