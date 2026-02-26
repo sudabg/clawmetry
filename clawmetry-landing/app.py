@@ -1272,6 +1272,82 @@ def webhook_email():
 
 # ─── Admin Routes ────────────────────────────────────────────────────────────
 
+@app.route("/connect")
+def connect_page():
+    return send_from_directory(".", "connect.html")
+
+
+@app.route("/api/connect", methods=["POST"])
+def api_connect():
+    import uuid
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+    node_name = str(data.get("node_name", "my-agent")).strip() or "my-agent"
+
+    if not email or "@" not in email:
+        return jsonify({"error": "Valid email required"}), 400
+
+    api_key = "cm_" + uuid.uuid4().hex[:24]
+    created_at = _now_iso()
+
+    key_doc = {
+        "email": email,
+        "api_key": api_key,
+        "node_name": node_name,
+        "created_at": created_at,
+        "status": "active",
+    }
+
+    # Store in Firestore
+    _fs_add("api_keys", key_doc)
+
+    # Also subscribe to Resend audience
+    try:
+        _resend_post(f"/audiences/{RESEND_AUDIENCE_ID}/contacts", {"email": email, "unsubscribed": False})
+    except Exception:
+        pass
+
+    # Email the key to the user
+    key_email_html = f"""
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;">
+      <div style="background:#0B0F1A;padding:24px 28px 16px;border-radius:12px 12px 0 0;">
+        <div style="font-size:20px;font-weight:800;color:#fff;">Claw<span style="color:#E5443A;">metry</span> &#x1F99E;</div>
+      </div>
+      <div style="background:#fff;padding:28px;border-radius:0 0 12px 12px;border:1px solid #e2e8f0;border-top:none;">
+        <p style="font-size:15px;color:#111;margin:0 0 16px;">Here is your ClawMetry API key:</p>
+        <div style="background:#0d1117;border-radius:8px;padding:16px;font-family:monospace;font-size:13px;color:#22c55e;word-break:break-all;margin-bottom:20px;">{api_key}</div>
+        <p style="font-size:14px;color:#374151;margin:0 0 6px;font-weight:600;">Next steps:</p>
+        <ol style="font-size:14px;color:#374151;padding-left:20px;line-height:2;">
+          <li>Install: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;">pip install clawmetry</code></li>
+          <li>Run: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;">clawmetry connect</code> and paste the key above</li>
+          <li>Open <a href="https://app.clawmetry.com" style="color:#E5443A;">app.clawmetry.com</a> and enter the same key</li>
+        </ol>
+        <p style="font-size:13px;color:#94a3b8;margin-top:20px;">Questions? Reply to this email.</p>
+      </div>
+    </div>"""
+
+    _resend_post("/emails", {
+        "from": FROM_EMAIL,
+        "to": [email],
+        "reply_to": VIVEK_EMAIL,
+        "subject": "Your ClawMetry API key",
+        "html": key_email_html,
+    })
+
+    # Notify Vivek
+    def _notify():
+        _resend_post("/emails", {
+            "from": FROM_EMAIL, "to": [VIVEK_EMAIL],
+            "subject": f"New cloud connect: {email}",
+            "html": f"<p><b>{email}</b> just requested a ClawMetry cloud API key.</p><p>Node: {node_name}</p><p>Key: <code>{api_key}</code></p>",
+        })
+    import threading
+    threading.Thread(target=_notify, daemon=True).start()
+
+    log.info(f"[connect] new key for {email} node={node_name}")
+    return jsonify({"ok": True, "api_key": api_key})
+
+
 @app.route("/admin/login", methods=["GET", "POST"])
 def admin_login():
     error = ""
