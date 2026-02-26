@@ -494,11 +494,10 @@ WELCOME_HTML = """\
     <p style="font-size:15px;line-height:1.7;color:#d1d5db;">Thanks for subscribing! ClawMetry is a free, open-source dashboard that lets you see token costs, cron jobs, sub-agents, memory files, and session history in one place.</p>
     <p style="font-size:14px;line-height:1.7;color:#9ca3af;">Get started in one line:</p>
     <div style="background:#111827;border:1px solid #2d2d44;border-radius:8px;padding:14px 18px;font-family:monospace;font-size:13px;color:#10b981;margin:12px 0;">curl -fsSL https://clawmetry.com/install.sh | bash</div>
-    <p style="font-size:15px;line-height:1.7;color:#d1d5db;margin-top:20px;">We just launched on Product Hunt and would love your support:</p>
     <div style="background:#1a1a2e;border:1px solid #2d2d44;border-radius:10px;padding:20px;margin:20px 0;">
-      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:8px;">🔼 Upvote on Product Hunt</div>
-      <p style="font-size:13px;color:#9ca3af;margin:0 0 12px;">One click helps us reach more developers.</p>
-      <a href="https://www.producthunt.com/products/clawmetry" style="display:inline-block;background:#ff6154;color:#fff;font-weight:700;font-size:13px;padding:10px 24px;border-radius:8px;text-decoration:none;">Upvote on Product Hunt →</a>
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:8px;">&#x1F4AC; Share your experience on Product Hunt</div>
+      <p style="font-size:13px;color:#9ca3af;margin:0 0 12px;">Used ClawMetry? A quick review helps others find it.</p>
+      <a href="https://www.producthunt.com/products/clawmetry/reviews/new" style="display:inline-block;background:#ff6154;color:#fff;font-weight:700;font-size:13px;padding:10px 24px;border-radius:8px;text-decoration:none;">Write a review &#x2192;</a>
     </div>
     <div style="background:#1a1a2e;border:1px solid #2d2d44;border-radius:10px;padding:20px;margin:20px 0;">
       <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:8px;">⭐ Star us on GitHub</div>
