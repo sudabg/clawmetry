@@ -80,7 +80,7 @@ def _bg_send_managed_email(name, email, use_case):
         _resend_post("/emails", {
             "from": FROM_EMAIL, "to": [email], "bcc": ["vivek@clawmetry.com"],
             "reply_to": ["vivek@clawmetry.com"],
-            "subject": ai_s or "Quick question about your OpenClaw setup",
+            "subject": ai_s or "You're on the ClawMetry managed hosting list",
             "html": f'''<div style="font-family:sans-serif;max-width:500px;margin:0 auto;background:#0d0d14;color:#e0e0e0;border-radius:12px;overflow:hidden;">
   <div style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:32px 28px;text-align:center;">
     <div style="font-size:28px;margin-bottom:8px;">🦞</div>
@@ -878,7 +878,7 @@ def managed_request():
             _resend_post("/emails", {
                 "from": FROM_EMAIL, "to": [email], "bcc": ["vivek@clawmetry.com"],
                 "reply_to": ["vivek@clawmetry.com"],
-                "subject": ai_subject_managed or "Quick question about your OpenClaw setup",
+                "subject": "You're on the ClawMetry managed hosting list",
                 "html": email_html
             })
         except Exception as e:
