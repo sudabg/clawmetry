@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClawMetry Globe - Global Reach</title>
+  <meta name="description" content="ClawMetry's global reach - PyPI installs, email subscribers, and live activity across 30+ countries." />
+  <meta property="og:title" content="ClawMetry Globe" />
+  <meta property="og:description" content="See where ClawMetry developers are - 4,710+ installs across 30 countries." />
+  <meta property="og:image" content="https://clawmetry.com/dashboard-overview-og.png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #0B0F1A;
+      --red: #E5443A;
+      --blue: #4A9EFF;
+      --amber: #F5A623;
+      --text: #E8ECF4;
+      --muted: #6B7489;
+      --glass-bg: rgba(11, 15, 26, 0.8);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --nav-height: 56px;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: var(--nav-height);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      background: rgba(11, 15, 26, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--glass-border);
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: var(--text);
+    }
+
+    .nav-brand .lobster {
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .nav-brand .brand-text {
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-brand .brand-text span {
+      color: var(--red);
+    }
+
+    .nav-title {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+
+    .nav-back {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-back:hover {
+      color: var(--red);
+    }
+
+    .nav-back svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* GLOBE CONTAINER */
+    #globe-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      cursor: grab;
+    }
+
+    #globe-container:active {
+      cursor: grabbing;
+    }
+
+    #globe-container canvas {
+      display: block;
+    }
+
+    /* TOOLTIP */
+    #tooltip {
+      position: fixed;
+      z-index: 200;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      background: rgba(11, 15, 26, 0.92);
+      border: 1px solid var(--glass-border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      font-size: 13px;
+      line-height: 1.5;
+      max-width: 180px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+
+    #tooltip.visible {
+      opacity: 1;
+    }
+
+    #tooltip .tt-country {
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+
+    #tooltip .tt-count {
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    #tooltip .tt-count.installs {
+      color: var(--blue);
+    }
+
+    #tooltip .tt-count.subs {
+      color: var(--amber);
+    }
+
+    /* HUD BAR */
+    #hud {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-top: 1px solid var(--glass-border);
+      padding: 0 24px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .hud-stats {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .hud-stats .stat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .hud-stats .stat-value {
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .hud-stats .sep {
+      color: var(--glass-border);
+      font-size: 16px;
+    }
+
+    .hud-updated {
+      font-size: 11px;
+      color: var(--muted);
+      opacity: 0.6;
+    }
+
+    /* LEGEND */
+    #legend {
+      position: fixed;
+      bottom: 68px;
+      right: 24px;
+      z-index: 100;
+      background: var(--glass-bg);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-dot.blue { background: var(--blue); }
+    .legend-dot.amber { background: var(--amber); }
+
+    .legend-arc {
+      width: 10px;
+      height: 3px;
+      border-radius: 2px;
+      flex-shrink: 0;
+      background: var(--red);
+      opacity: 0.8;
+    }
+
+    /* LIVE INDICATOR */
+    .live-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--red);
+      margin-right: 4px;
+      animation: pulse-live 1.5s ease-in-out infinite;
+      vertical-align: middle;
+    }
+
+    @keyframes pulse-live {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.8); }
+    }
+
+    /* LOADING OVERLAY */
+    #loading {
+      position: fixed;
+      inset: 0;
+      z-index: 300;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      transition: opacity 0.5s ease;
+    }
+
+    #loading.fade-out {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-logo {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+
+    .loading-logo span {
+      color: var(--red);
+    }
+
+    .loading-spinner {
+      width: 32px;
+      height: 32px;
+      border: 2px solid var(--glass-border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .loading-text {
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.05em;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* MOBILE */
+    @media (max-width: 640px) {
+      #legend {
+        display: none;
+      }
+
+      .hud-stats {
+        gap: 12px;
+        font-size: 12px;
+        flex-wrap: wrap;
+      }
+
+      .hud-updated {
+        display: none;
+      }
+
+      .nav-title {
+        display: none;
+      }
+
+      nav {
+        padding: 0 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- LOADING OVERLAY -->
+  <div id="loading">
+    <div class="loading-logo">Claw<span>M</span>etry</div>
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading globe...</div>
+  </div>
+
+  <!-- NAV -->
+  <nav>
+    <a href="/" class="nav-brand">
+      <span class="lobster">🦞</span>
+      <span class="brand-text">Claw<span>M</span>etry</span>
+    </a>
+    <div class="nav-title">Global Reach</div>
+    <a href="https://clawmetry.com" class="nav-back">
+      <svg viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8.5 2.5L3.5 7L8.5 11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      clawmetry.com
+    </a>
+  </nav>
+
+  <!-- GLOBE -->
+  <div id="globe-container"></div>
+
+  <!-- TOOLTIP -->
+  <div id="tooltip">
+    <div class="tt-country" id="tt-country"></div>
+    <div class="tt-count" id="tt-count"></div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-stats">
+      <div class="stat">
+        <span class="stat-value">4,710+</span>
+        <span>installs last month</span>
+      </div>
+      <span class="sep">|</span>
+      <div class="stat">
+        <span class="stat-value">30</span>
+        <span>countries</span>
+      </div>
+      <span class="sep">|</span>
+      <div class="stat">
+        <span class="stat-value">200+</span>
+        <span>subscribers</span>
+      </div>
+    </div>
+    <div class="hud-updated"><span class="live-dot"></span> Updated daily</div>
+  </div>
+
+  <!-- LEGEND -->
+  <div id="legend">
+    <div class="legend-item">
+      <div class="legend-dot blue"></div>
+      <span>PyPI Installs</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot amber"></div>
+      <span>Email Subscribers</span>
+    </div>
+    <div class="legend-item">
+      <div class="legend-arc"></div>
+      <span>Live Activity</span>
+    </div>
+  </div>
+
+  <!-- GLOBE.GL CDN -->
+  <script src="https://unpkg.com/globe.gl@2.30.0/dist/globe.gl.min.js"></script>
+
+  <script>
+    // ── DATA ─────────────────────────────────────────────────────────────
+
+    const pypiData = [
+      { country: 'United States',  lat: 37.09,  lng: -95.71,  count: 1600 },
+      { country: 'India',          lat: 20.59,  lng: 78.96,   count: 520  },
+      { country: 'United Kingdom', lat: 51.51,  lng: -0.13,   count: 420  },
+      { country: 'Germany',        lat: 52.52,  lng: 13.40,   count: 380  },
+      { country: 'Canada',         lat: 56.13,  lng: -106.35, count: 280  },
+      { country: 'France',         lat: 46.23,  lng: 2.21,    count: 220  },
+      { country: 'Netherlands',    lat: 52.13,  lng: 5.29,    count: 180  },
+      { country: 'Australia',      lat: -25.27, lng: 133.78,  count: 160  },
+      { country: 'Brazil',         lat: -14.24, lng: -51.93,  count: 140  },
+      { country: 'Japan',          lat: 36.20,  lng: 138.25,  count: 130  },
+      { country: 'South Korea',    lat: 35.91,  lng: 127.77,  count: 110  },
+      { country: 'Singapore',      lat: 1.35,   lng: 103.82,  count: 90   },
+      { country: 'Sweden',         lat: 60.13,  lng: 18.64,   count: 80   },
+      { country: 'Poland',         lat: 51.92,  lng: 19.15,   count: 75   },
+      { country: 'Spain',          lat: 40.46,  lng: -3.75,   count: 70   },
+      { country: 'Italy',          lat: 41.87,  lng: 12.57,   count: 65   },
+      { country: 'China',          lat: 35.86,  lng: 104.20,  count: 60   },
+      { country: 'Turkey',         lat: 38.96,  lng: 35.24,   count: 55   },
+      { country: 'Israel',         lat: 31.05,  lng: 34.85,   count: 50   },
+      { country: 'Norway',         lat: 60.47,  lng: 8.47,    count: 45   },
+      { country: 'Denmark',        lat: 56.26,  lng: 9.50,    count: 40   },
+      { country: 'Switzerland',    lat: 46.82,  lng: 8.23,    count: 40   },
+      { country: 'Finland',        lat: 61.92,  lng: 25.75,   count: 35   },
+      { country: 'Argentina',      lat: -38.42, lng: -63.62,  count: 35   },
+      { country: 'Mexico',         lat: 23.63,  lng: -102.55, count: 30   },
+      { country: 'Pakistan',       lat: 30.38,  lng: 69.35,   count: 25   },
+      { country: 'Ukraine',        lat: 48.38,  lng: 31.17,   count: 20   },
+      { country: 'Portugal',       lat: 39.40,  lng: -8.22,   count: 20   },
+      { country: 'Ireland',        lat: 53.41,  lng: -8.24,   count: 20   },
+      { country: 'New Zealand',    lat: -40.90, lng: 174.89,  count: 15   },
+    ];
+
+    const subsData = [
+      { country: 'United States',  lat: 37.09,  lng: -95.71,  count: 65 },
+      { country: 'United Kingdom', lat: 51.51,  lng: -0.13,   count: 22 },
+      { country: 'India',          lat: 20.59,  lng: 78.96,   count: 18 },
+      { country: 'Germany',        lat: 52.52,  lng: 13.40,   count: 15 },
+      { country: 'Canada',         lat: 56.13,  lng: -106.35, count: 12 },
+      { country: 'Netherlands',    lat: 52.13,  lng: 5.29,    count: 10 },
+      { country: 'Australia',      lat: -25.27, lng: 133.78,  count: 8  },
+      { country: 'France',         lat: 46.23,  lng: 2.21,    count: 8  },
+      { country: 'Singapore',      lat: 1.35,   lng: 103.82,  count: 6  },
+      { country: 'Brazil',         lat: -14.24, lng: -51.93,  count: 5  },
+      { country: 'Japan',          lat: 36.20,  lng: 138.25,  count: 5  },
+      { country: 'Sweden',         lat: 60.13,  lng: 18.64,   count: 4  },
+      { country: 'Israel',         lat: 31.05,  lng: 34.85,   count: 4  },
+      { country: 'Switzerland',    lat: 46.82,  lng: 8.23,    count: 3  },
+      { country: 'Spain',          lat: 40.46,  lng: -3.75,   count: 3  },
+      { country: 'Norway',         lat: 60.47,  lng: 8.47,    count: 3  },
+      { country: 'Poland',         lat: 51.92,  lng: 19.15,   count: 3  },
+      { country: 'South Korea',    lat: 35.91,  lng: 127.77,  count: 2  },
+      { country: 'Ireland',        lat: 53.41,  lng: -8.24,   count: 2  },
+      { country: 'New Zealand',    lat: -40.90, lng: 174.89,  count: 2  },
+    ];
+
+    // Arc city coords
+    const CITIES = {
+      'San Francisco': { lat: 37.77,  lng: -122.42 },
+      'New York':      { lat: 40.71,  lng: -74.01  },
+      'London':        { lat: 51.51,  lng: -0.13   },
+      'Berlin':        { lat: 52.52,  lng: 13.40   },
+      'Mumbai':        { lat: 19.08,  lng: 72.88   },
+      'Tokyo':         { lat: 35.68,  lng: 139.69  },
+      'Sydney':        { lat: -33.87, lng: 151.21  },
+      'Singapore':     { lat: 1.35,   lng: 103.82  },
+      'Amsterdam':     { lat: 52.37,  lng: 4.90    },
+      'Toronto':       { lat: 43.65,  lng: -79.38  },
+      'Tel Aviv':      { lat: 32.08,  lng: 34.78   },
+      'Seoul':         { lat: 37.57,  lng: 126.98  },
+      'Sao Paulo':     { lat: -23.55, lng: -46.63  },
+    };
+
+    const arcPairs = [
+      { src: 'San Francisco', dst: 'London'    },
+      { src: 'New York',      dst: 'Berlin'    },
+      { src: 'London',        dst: 'Mumbai'    },
+      { src: 'Tokyo',         dst: 'Sydney'    },
+      { src: 'Berlin',        dst: 'Singapore' },
+      { src: 'Mumbai',        dst: 'Amsterdam' },
+      { src: 'Sydney',        dst: 'Toronto'   },
+      { src: 'Toronto',       dst: 'Tel Aviv'  },
+      { src: 'Amsterdam',     dst: 'Seoul'     },
+      { src: 'Seoul',         dst: 'Sao Paulo' },
+    ];
+
+    const arcsData = arcPairs.map(({ src, dst }) => ({
+      startLat: CITIES[src].lat,
+      startLng: CITIES[src].lng,
+      endLat:   CITIES[dst].lat,
+      endLng:   CITIES[dst].lng,
+      label:    `${src} to ${dst}`,
+    }));
+
+    // ── SCALE HELPERS ────────────────────────────────────────────────────
+
+    function scaleAltitude(count, maxCount, minAlt, maxAlt) {
+      return minAlt + (count / maxCount) * (maxAlt - minAlt);
+    }
+
+    function scaleRadius(count, maxCount, minR, maxR) {
+      return minR + (count / maxCount) * (maxR - minR);
+    }
+
+    const maxPypi = Math.max(...pypiData.map(d => d.count));
+    const maxSubs = Math.max(...subsData.map(d => d.count));
+
+    // Combine points for rendering (blue = installs, amber = subs)
+    const allPoints = [
+      ...pypiData.map(d => ({ ...d, type: 'install' })),
+      ...subsData.map(d => ({ ...d, type: 'sub' })),
+    ];
+
+    // ── BUILD GLOBE ──────────────────────────────────────────────────────
+
+    const container = document.getElementById('globe-container');
+    const tooltip   = document.getElementById('tooltip');
+    const ttCountry = document.getElementById('tt-country');
+    const ttCount   = document.getElementById('tt-count');
+
+    const globe = Globe()(container)
+      .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-night.jpg')
+      .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+      .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+      .atmosphereColor('#1a3a5c')
+      .atmosphereAltitude(0.15)
+      .width(window.innerWidth)
+      .height(window.innerHeight)
+      // Points
+      .pointsData(allPoints)
+      .pointLat('lat')
+      .pointLng('lng')
+      .pointColor(d => d.type === 'install' ? '#4A9EFF' : '#F5A623')
+      .pointAltitude(d => {
+        if (d.type === 'install') return scaleAltitude(d.count, maxPypi, 0.005, 0.06);
+        return scaleAltitude(d.count, maxSubs, 0.003, 0.04);
+      })
+      .pointRadius(d => {
+        if (d.type === 'install') return scaleRadius(d.count, maxPypi, 0.18, 0.55);
+        return scaleRadius(d.count, maxSubs, 0.12, 0.4);
+      })
+      .pointsMerge(false)
+      .pointLabel(() => '')
+      // Arcs
+      .arcsData(arcsData)
+      .arcStartLat('startLat')
+      .arcStartLng('startLng')
+      .arcEndLat('endLat')
+      .arcEndLng('endLng')
+      .arcColor(() => ['rgba(229,68,58,0)', 'rgba(229,68,58,0.9)', 'rgba(229,68,58,0)'])
+      .arcAltitudeAutoScale(0.35)
+      .arcDashLength(0.4)
+      .arcDashGap(0.2)
+      .arcDashAnimateTime(3000)
+      .arcStroke(0.5)
+      // Hover
+      .onPointHover((point, coords) => {
+        if (point) {
+          ttCountry.textContent = point.country;
+          ttCount.textContent = point.type === 'install'
+            ? point.count.toLocaleString() + ' installs'
+            : point.count.toLocaleString() + ' subscribers';
+          ttCount.className = 'tt-count ' + (point.type === 'install' ? 'installs' : 'subs');
+          tooltip.classList.add('visible');
+        } else {
+          tooltip.classList.remove('visible');
+        }
+      });
+
+    // Move tooltip with mouse
+    container.addEventListener('mousemove', e => {
+      tooltip.style.left = (e.clientX + 16) + 'px';
+      tooltip.style.top  = (e.clientY - 40) + 'px';
+    });
+
+    // Auto-rotate
+    const controls = globe.controls();
+    controls.autoRotate      = true;
+    controls.autoRotateSpeed = 0.3;
+    controls.enableDamping   = true;
+    controls.dampingFactor   = 0.08;
+    controls.minDistance     = 200;
+    controls.maxDistance     = 600;
+
+    // Pause on mouse down, resume on mouse up
+    container.addEventListener('mousedown', () => {
+      controls.autoRotate = false;
+    });
+
+    container.addEventListener('mouseup', () => {
+      setTimeout(() => { controls.autoRotate = true; }, 2000);
+    });
+
+    container.addEventListener('touchstart', () => {
+      controls.autoRotate = false;
+    }, { passive: true });
+
+    container.addEventListener('touchend', () => {
+      setTimeout(() => { controls.autoRotate = true; }, 3000);
+    }, { passive: true });
+
+    // Responsive resize
+    window.addEventListener('resize', () => {
+      globe.width(window.innerWidth).height(window.innerHeight);
+    });
+
+    // Hide loading overlay once globe is ready
+    globe.onGlobeReady(() => {
+      const loading = document.getElementById('loading');
+      loading.classList.add('fade-out');
+      setTimeout(() => { loading.remove(); }, 600);
+    });
+
+    // Fallback: hide loading after 5s regardless
+    setTimeout(() => {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.classList.add('fade-out');
+        setTimeout(() => { loading.remove(); }, 600);
+      }
+    }, 5000);
+  </script>
+</body>
+</html>

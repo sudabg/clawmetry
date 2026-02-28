@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from functools import wraps
 
 import requests
-from flask import Flask, request, jsonify, send_from_directory, make_response, redirect, url_for, session, render_template_string
+from flask import Flask, request, jsonify, send_from_directory, make_response, redirect, url_for, session, render_template_string, render_template
 
 app = Flask(__name__, static_folder=".", static_url_path="")
 
@@ -2050,6 +2050,10 @@ def admin_managed():
 
 # ─── Static Routes ───────────────────────────────────────────────────────────
 
+
+@app.route("/globe")
+def globe_page():
+    return render_template("globe.html")
 
 @app.route("/roadmap")
 def roadmap():

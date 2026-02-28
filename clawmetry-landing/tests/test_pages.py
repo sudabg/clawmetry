@@ -23,6 +23,11 @@ class TestPageLoads:
         r = client.get("/traction")
         assert r.status_code == 200
 
+    def test_globe(self, client):
+        r = client.get("/globe")
+        assert r.status_code == 200
+        assert b"ClawMetry" in r.data
+
     def test_install_sh(self, client):
         r = client.get("/install.sh")
         assert r.status_code == 200
