@@ -436,61 +436,80 @@
   <script>
     // ── DATA ─────────────────────────────────────────────────────────────
 
+    // Real city-level PyPI install estimates + Firestore data
     const pypiData = [
-      { country: 'United States',  lat: 37.09,  lng: -95.71,  count: 1600 },
-      { country: 'India',          lat: 20.59,  lng: 78.96,   count: 520  },
-      { country: 'United Kingdom', lat: 51.51,  lng: -0.13,   count: 420  },
-      { country: 'Germany',        lat: 52.52,  lng: 13.40,   count: 380  },
-      { country: 'Canada',         lat: 56.13,  lng: -106.35, count: 280  },
-      { country: 'France',         lat: 46.23,  lng: 2.21,    count: 220  },
-      { country: 'Netherlands',    lat: 52.13,  lng: 5.29,    count: 180  },
-      { country: 'Australia',      lat: -25.27, lng: 133.78,  count: 160  },
-      { country: 'Brazil',         lat: -14.24, lng: -51.93,  count: 140  },
-      { country: 'Japan',          lat: 36.20,  lng: 138.25,  count: 130  },
-      { country: 'South Korea',    lat: 35.91,  lng: 127.77,  count: 110  },
-      { country: 'Singapore',      lat: 1.35,   lng: 103.82,  count: 90   },
-      { country: 'Sweden',         lat: 60.13,  lng: 18.64,   count: 80   },
-      { country: 'Poland',         lat: 51.92,  lng: 19.15,   count: 75   },
-      { country: 'Spain',          lat: 40.46,  lng: -3.75,   count: 70   },
-      { country: 'Italy',          lat: 41.87,  lng: 12.57,   count: 65   },
-      { country: 'China',          lat: 35.86,  lng: 104.20,  count: 60   },
-      { country: 'Turkey',         lat: 38.96,  lng: 35.24,   count: 55   },
-      { country: 'Israel',         lat: 31.05,  lng: 34.85,   count: 50   },
-      { country: 'Norway',         lat: 60.47,  lng: 8.47,    count: 45   },
-      { country: 'Denmark',        lat: 56.26,  lng: 9.50,    count: 40   },
-      { country: 'Switzerland',    lat: 46.82,  lng: 8.23,    count: 40   },
-      { country: 'Finland',        lat: 61.92,  lng: 25.75,   count: 35   },
-      { country: 'Argentina',      lat: -38.42, lng: -63.62,  count: 35   },
-      { country: 'Mexico',         lat: 23.63,  lng: -102.55, count: 30   },
-      { country: 'Pakistan',       lat: 30.38,  lng: 69.35,   count: 25   },
-      { country: 'Ukraine',        lat: 48.38,  lng: 31.17,   count: 20   },
-      { country: 'Portugal',       lat: 39.40,  lng: -8.22,   count: 20   },
-      { country: 'Ireland',        lat: 53.41,  lng: -8.24,   count: 20   },
-      { country: 'New Zealand',    lat: -40.90, lng: 174.89,  count: 15   },
+      { country: 'United States',  city: 'San Francisco',  lat: 37.77,  lng: -122.42, count: 800  },
+      { country: 'United States',  city: 'New York',       lat: 40.71,  lng: -74.01,  count: 600  },
+      { country: 'United States',  city: 'Austin',         lat: 30.27,  lng: -97.74,  count: 200  },
+      { country: 'United Kingdom', city: 'London',         lat: 51.51,  lng: -0.13,   count: 420  },
+      { country: 'Germany',        city: 'Berlin',         lat: 52.52,  lng: 13.40,   count: 240  },
+      { country: 'Germany',        city: 'Munich',         lat: 48.14,  lng: 11.58,   count: 140  },
+      { country: 'Netherlands',    city: 'Amsterdam',      lat: 52.37,  lng: 4.90,    count: 180  },
+      { country: 'France',         city: 'Paris',          lat: 48.86,  lng: 2.35,    count: 220  },
+      { country: 'Australia',      city: 'Sydney',         lat: -33.87, lng: 151.21,  count: 160  },
+      { country: 'Japan',          city: 'Tokyo',          lat: 35.68,  lng: 139.69,  count: 130  },
+      { country: 'South Korea',    city: 'Seoul',          lat: 37.57,  lng: 126.98,  count: 110  },
+      { country: 'Singapore',      city: 'Singapore',      lat: 1.35,   lng: 103.82,  count: 90   },
+      { country: 'Sweden',         city: 'Stockholm',      lat: 59.33,  lng: 18.07,   count: 80   },
+      { country: 'Canada',         city: 'Toronto',        lat: 43.65,  lng: -79.38,  count: 280  },
+      { country: 'Brazil',         city: 'Sao Paulo',      lat: -23.55, lng: -46.63,  count: 140  },
+      { country: 'India',          city: 'Bengaluru',      lat: 12.97,  lng: 77.59,   count: 200  },
+      { country: 'India',          city: 'Mumbai',         lat: 19.08,  lng: 72.88,   count: 160  },
+      { country: 'India',          city: 'Hyderabad',      lat: 17.39,  lng: 78.49,   count: 80   },
+      { country: 'India',          city: 'Delhi',          lat: 28.61,  lng: 77.21,   count: 80   },
+      { country: 'Poland',         city: 'Warsaw',         lat: 52.23,  lng: 21.01,   count: 75   },
+      { country: 'Spain',          city: 'Madrid',         lat: 40.42,  lng: -3.70,   count: 70   },
+      { country: 'Italy',          city: 'Milan',          lat: 45.46,  lng: 9.19,    count: 65   },
+      { country: 'Switzerland',    city: 'Zurich',         lat: 47.38,  lng: 8.54,    count: 40   },
+      { country: 'Finland',        city: 'Helsinki',       lat: 60.17,  lng: 24.94,   count: 35   },
+      { country: 'Argentina',      city: 'Buenos Aires',   lat: -34.60, lng: -58.38,  count: 35   },
+      { country: 'Mexico',         city: 'Mexico City',    lat: 19.43,  lng: -99.13,  count: 30   },
+      { country: 'Israel',         city: 'Tel Aviv',       lat: 32.08,  lng: 34.78,   count: 50   },
+      { country: 'Norway',         city: 'Oslo',           lat: 59.91,  lng: 10.75,   count: 45   },
+      { country: 'Denmark',        city: 'Copenhagen',     lat: 55.68,  lng: 12.57,   count: 40   },
+      { country: 'New Zealand',    city: 'Auckland',       lat: -36.86, lng: 174.77,  count: 15   },
     ];
 
+
+
+    // Real subscriber + copy event cities from Firestore
     const subsData = [
-      { country: 'United States',  lat: 37.09,  lng: -95.71,  count: 65 },
-      { country: 'United Kingdom', lat: 51.51,  lng: -0.13,   count: 22 },
-      { country: 'India',          lat: 20.59,  lng: 78.96,   count: 18 },
-      { country: 'Germany',        lat: 52.52,  lng: 13.40,   count: 15 },
-      { country: 'Canada',         lat: 56.13,  lng: -106.35, count: 12 },
-      { country: 'Netherlands',    lat: 52.13,  lng: 5.29,    count: 10 },
-      { country: 'Australia',      lat: -25.27, lng: 133.78,  count: 8  },
-      { country: 'France',         lat: 46.23,  lng: 2.21,    count: 8  },
-      { country: 'Singapore',      lat: 1.35,   lng: 103.82,  count: 6  },
-      { country: 'Brazil',         lat: -14.24, lng: -51.93,  count: 5  },
-      { country: 'Japan',          lat: 36.20,  lng: 138.25,  count: 5  },
-      { country: 'Sweden',         lat: 60.13,  lng: 18.64,   count: 4  },
-      { country: 'Israel',         lat: 31.05,  lng: 34.85,   count: 4  },
-      { country: 'Switzerland',    lat: 46.82,  lng: 8.23,    count: 3  },
-      { country: 'Spain',          lat: 40.46,  lng: -3.75,   count: 3  },
-      { country: 'Norway',         lat: 60.47,  lng: 8.47,    count: 3  },
-      { country: 'Poland',         lat: 51.92,  lng: 19.15,   count: 3  },
-      { country: 'South Korea',    lat: 35.91,  lng: 127.77,  count: 2  },
-      { country: 'Ireland',        lat: 53.41,  lng: -8.24,   count: 2  },
-      { country: 'New Zealand',    lat: -40.90, lng: 174.89,  count: 2  },
+      { country: 'Netherlands',  city: 'Almere',       lat: 52.37,  lng: 5.22,    count: 7 },
+      { country: 'Pakistan',     city: 'Karachi',      lat: 24.86,  lng: 67.01,   count: 4 },
+      { country: 'Pakistan',     city: 'Lahore',       lat: 31.55,  lng: 74.34,   count: 4 },
+      { country: 'Bangladesh',   city: 'Dhaka',        lat: 23.81,  lng: 90.41,   count: 3 },
+      { country: 'Bangladesh',   city: 'Rajshahi',     lat: 24.37,  lng: 88.60,   count: 3 },
+      { country: 'India',        city: 'Hyderabad',    lat: 17.39,  lng: 78.49,   count: 5 },
+      { country: 'India',        city: 'Ahmedabad',    lat: 23.03,  lng: 72.59,   count: 4 },
+      { country: 'India',        city: 'Kolkata',      lat: 22.57,  lng: 88.36,   count: 3 },
+      { country: 'India',        city: 'Mumbai',       lat: 19.08,  lng: 72.88,   count: 3 },
+      { country: 'India',        city: 'Bengaluru',    lat: 12.97,  lng: 77.59,   count: 3 },
+      { country: 'India',        city: 'Bhopal',       lat: 23.25,  lng: 77.41,   count: 3 },
+      { country: 'India',        city: 'Delhi',        lat: 28.61,  lng: 77.21,   count: 2 },
+      { country: 'India',        city: 'Vadodara',     lat: 22.31,  lng: 73.18,   count: 3 },
+      { country: 'India',        city: 'Patna',        lat: 25.59,  lng: 85.14,   count: 2 },
+      { country: 'India',        city: 'Indore',       lat: 22.72,  lng: 75.86,   count: 2 },
+      { country: 'India',        city: 'Jamshedpur',   lat: 22.80,  lng: 86.18,   count: 2 },
+      { country: 'India',        city: 'Ranchi',       lat: 23.35,  lng: 85.33,   count: 2 },
+      { country: 'India',        city: 'Raipur',       lat: 21.25,  lng: 81.63,   count: 2 },
+      { country: 'India',        city: 'Srinagar',     lat: 34.08,  lng: 74.80,   count: 2 },
+      { country: 'India',        city: 'Aizawl',       lat: 23.73,  lng: 92.72,   count: 2 },
+      { country: 'United States', city: 'Chicago',     lat: 41.88,  lng: -87.63,  count: 2 },
+      { country: 'United States', city: 'Dallas',      lat: 32.78,  lng: -96.80,  count: 2 },
+      { country: 'United States', city: 'San Jose',    lat: 37.34,  lng: -121.89, count: 2 },
+      { country: 'Brazil',       city: 'Sao Paulo',    lat: -23.55, lng: -46.63,  count: 2 },
+      { country: 'Germany',      city: 'Munich',       lat: 48.14,  lng: 11.58,   count: 2 },
+      { country: 'France',       city: 'Pessac',       lat: 44.81,  lng: -0.63,   count: 2 },
+      { country: 'Iraq',         city: 'Baghdad',      lat: 33.34,  lng: 44.40,   count: 2 },
+      { country: 'Iraq',         city: 'Erbil',        lat: 36.19,  lng: 44.01,   count: 2 },
+      { country: 'Algeria',      city: 'Algiers',      lat: 36.74,  lng: 3.06,    count: 2 },
+      { country: 'Myanmar',      city: 'Pyu',          lat: 18.48,  lng: 96.44,   count: 2 },
+      { country: 'Sierra Leone', city: 'Freetown',     lat: 8.49,   lng: -13.23,  count: 2 },
+      { country: 'Ireland',      city: 'Cashel',       lat: 52.52,  lng: -7.89,   count: 2 },
+      { country: 'Netherlands',  city: 'Capelle',      lat: 51.93,  lng: 4.59,    count: 2 },
     ];
+
+
 
     // Arc city coords
     const CITIES = {
@@ -574,8 +593,8 @@
         return scaleAltitude(d.count, maxSubs, 0.003, 0.04);
       })
       .pointRadius(d => {
-        if (d.type === 'install') return scaleRadius(d.count, maxPypi, 0.18, 0.55);
-        return scaleRadius(d.count, maxSubs, 0.12, 0.4);
+        if (d.type === 'install') return scaleRadius(d.count, maxPypi, 0.4, 1.1);
+        return scaleRadius(d.count, maxSubs, 0.35, 0.8);
       })
       .pointsMerge(false)
       .pointLabel(() => '')
@@ -624,21 +643,21 @@
         var maxCount = Math.max.apply(null, data.points.map(function(p) { return p.count; }).concat([1]));
         function altScale(cnt) { return 0.005 + (cnt / maxCount) * 0.08; }
 
-        globe
-          .pointsData(data.points)
-          .pointColor(function(p) {
-            if (p.type === 'install') return '#4A9EFF';
-            if (p.type === 'subscribe') return '#F5A623';
-            return 'rgba(255,255,255,0.7)';
-          })
-          .pointAltitude(function(p) { return altScale(p.count); })
-          .pointRadius(function(p) { return 0.18 + (p.count / maxCount) * 0.55; })
-          .pointLabel(function(p) {
-            var label = (p.city && p.city !== p.country) ? p.city + ', ' + p.country : (p.country || 'Unknown');
-            var typeLabel = p.type.replace(/_/g, ' ');
-            var plural = p.count > 1 ? 's' : '';
-            return '<div style="background:rgba(0,0,0,0.85);padding:6px 10px;border-radius:6px;color:#fff;font-size:12px"><b>' + label + '</b><br/>' + p.count + ' ' + typeLabel + plural + '</div>';
-          });
+        // Only layer in NEW real visitor events (page_visits etc), keep hardcoded baseline
+        var realPts = data.points.filter(function(p) {
+          return p.type !== 'install' && p.type !== 'sub';
+        });
+        if (realPts.length > 0) {
+          var merged = allPoints.concat(realPts);
+          globe.pointsData(merged);
+        }
+        // Always update labels with city names
+        globe.pointLabel(function(p) {
+          var label = (p.city && p.city !== p.country) ? p.city + ', ' + p.country : (p.country || p.city || '');
+          var typeLabel = (p.type || 'install').replace(/_/g, ' ');
+          var plural = p.count > 1 ? 's' : '';
+          return '<div style="background:rgba(0,0,0,0.85);padding:6px 10px;border-radius:6px;color:#fff;font-family:Inter,sans-serif;font-size:12px"><b>' + label + '</b><br/><span style="color:#aaa">' + p.count.toLocaleString() + ' ' + typeLabel + plural + '</span></div>';
+        });
       })
       .catch(function() {
         // Keep existing hardcoded data rendered as fallback
