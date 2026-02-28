@@ -484,5 +484,31 @@ function castVote(btn) {
 }
 </script>
 
+<script>
+(function() {
+  function getOrCreateVisitorId() {
+    var key = "cm_vid";
+    var vid = localStorage.getItem(key);
+    if (!vid) { vid = "v_" + Math.random().toString(36).substr(2,9) + Date.now().toString(36); localStorage.setItem(key, vid); }
+    return vid;
+  }
+  function track(eventType, metadata) {
+    try {
+      fetch("/api/track", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          event_type: eventType,
+          visitor_id: getOrCreateVisitorId(),
+          page: window.location.pathname,
+          metadata: metadata || {}
+        })
+      }).catch(function(){});
+    } catch(e) {}
+  }
+  track("page_visit");
+  window.cmTrack = track;
+})();
+</script>
 </body>
 </html>

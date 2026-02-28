@@ -914,6 +914,7 @@ function _getIdentity(){try{var e=localStorage.getItem('_clm_id');if(!e)return {
 function _setIdentity(name,email){try{localStorage.setItem('_clm_id',_clmEnc(JSON.stringify({name:name||'',email:email||'',ts:Date.now()})));}catch(e){}}
 window._utm=typeof getUtmParams==='function'?getUtmParams():{};
 function openManagedModal() {
+  try { if(window.cmTrack) window.cmTrack(managed_cta); } catch(e) {}
   document.getElementById('managed-modal').style.display='flex';
   var id=_getIdentity();
   _encPost('/api/managed-click', {utm:window._utm,identity:id}).catch(function(){});
@@ -923,6 +924,7 @@ if(new URLSearchParams(window.location.search).get('managed')==='1'){
   setTimeout(function(){openManagedModal();},500);
 }
 function openSupportModal() {
+  try { if(window.cmTrack) window.cmTrack(support_cta); } catch(e) {}
   document.getElementById('support-modal').style.display='flex';
   _encPost('/api/managed-click', {utm:window._utm,identity:_getIdentity(),source:'support'}).catch(function(){});
 }
@@ -1227,5 +1229,31 @@ document.getElementById('subscribe-form').addEventListener('submit',function(e){
   </div>
 </footer>
 
+<script>
+(function() {
+  function getOrCreateVisitorId() {
+    var key = "cm_vid";
+    var vid = localStorage.getItem(key);
+    if (!vid) { vid = "v_" + Math.random().toString(36).substr(2,9) + Date.now().toString(36); localStorage.setItem(key, vid); }
+    return vid;
+  }
+  function track(eventType, metadata) {
+    try {
+      fetch("/api/track", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          event_type: eventType,
+          visitor_id: getOrCreateVisitorId(),
+          page: window.location.pathname,
+          metadata: metadata || {}
+        })
+      }).catch(function(){});
+    } catch(e) {}
+  }
+  track("page_visit");
+  window.cmTrack = track;
+})();
+</script>
 </body>
 </html>

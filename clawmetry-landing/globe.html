@@ -397,18 +397,18 @@
   <div id="hud">
     <div class="hud-stats">
       <div class="stat">
-        <span class="stat-value">4,710+</span>
+        <span class="stat-value" id="stat-installs">4,710+</span>
         <span>installs last month</span>
       </div>
       <span class="sep">|</span>
       <div class="stat">
-        <span class="stat-value">30</span>
+        <span class="stat-value" id="stat-countries">30</span>
         <span>countries</span>
       </div>
       <span class="sep">|</span>
       <div class="stat">
-        <span class="stat-value">200+</span>
-        <span>subscribers</span>
+        <span class="stat-value" id="stat-visitors">200+</span>
+        <span>visitors</span>
       </div>
     </div>
     <div class="hud-updated"><span class="live-dot"></span> Updated daily</div>
@@ -611,6 +611,39 @@
       tooltip.style.top  = (e.clientY - 40) + 'px';
     });
 
+
+    // Fetch real visitor data and update globe
+    fetch('/api/globe-data')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var vis = document.getElementById('stat-visitors');
+        var ctries = document.getElementById('stat-countries');
+        if (vis && data.total_visitors > 0) vis.textContent = data.total_visitors.toLocaleString() + '+';
+        if (ctries) ctries.textContent = data.total_countries;
+
+        var maxCount = Math.max.apply(null, data.points.map(function(p) { return p.count; }).concat([1]));
+        function altScale(cnt) { return 0.005 + (cnt / maxCount) * 0.08; }
+
+        globe
+          .pointsData(data.points)
+          .pointColor(function(p) {
+            if (p.type === 'install') return '#4A9EFF';
+            if (p.type === 'subscribe') return '#F5A623';
+            return 'rgba(255,255,255,0.7)';
+          })
+          .pointAltitude(function(p) { return altScale(p.count); })
+          .pointRadius(function(p) { return 0.18 + (p.count / maxCount) * 0.55; })
+          .pointLabel(function(p) {
+            var label = (p.city && p.city !== p.country) ? p.city + ', ' + p.country : (p.country || 'Unknown');
+            var typeLabel = p.type.replace(/_/g, ' ');
+            var plural = p.count > 1 ? 's' : '';
+            return '<div style="background:rgba(0,0,0,0.85);padding:6px 10px;border-radius:6px;color:#fff;font-size:12px"><b>' + label + '</b><br/>' + p.count + ' ' + typeLabel + plural + '</div>';
+          });
+      })
+      .catch(function() {
+        // Keep existing hardcoded data rendered as fallback
+      });
+
     // Auto-rotate
     const controls = globe.controls();
     controls.autoRotate      = true;
@@ -658,5 +691,31 @@
       }
     }, 5000);
   </script>
+<script>
+(function() {
+  function getOrCreateVisitorId() {
+    var key = "cm_vid";
+    var vid = localStorage.getItem(key);
+    if (!vid) { vid = "v_" + Math.random().toString(36).substr(2,9) + Date.now().toString(36); localStorage.setItem(key, vid); }
+    return vid;
+  }
+  function track(eventType, metadata) {
+    try {
+      fetch("/api/track", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          event_type: eventType,
+          visitor_id: getOrCreateVisitorId(),
+          page: window.location.pathname,
+          metadata: metadata || {}
+        })
+      }).catch(function(){});
+    } catch(e) {}
+  }
+  track("page_visit");
+  window.cmTrack = track;
+})();
+</script>
 </body>
 </html>

@@ -2048,6 +2048,175 @@ def admin_managed():
     return _render_admin("Managed", html, "managed")
 
 
+
+# ─── Visitor Tracking ────────────────────────────────────────────────────────
+
+_ip_geo_cache = {}
+_rate_limit_set = {}
+_globe_cache = {"data": None, "ts": 0}
+
+_PYPI_INSTALL_POINTS = [
+    {"lat": 37.09,  "lng": -95.71,  "city": "United States",  "country": "United States",  "type": "install", "count": 1600},
+    {"lat": 20.59,  "lng": 78.96,   "city": "India",          "country": "India",          "type": "install", "count": 520},
+    {"lat": 51.51,  "lng": -0.13,   "city": "United Kingdom", "country": "United Kingdom", "type": "install", "count": 420},
+    {"lat": 52.52,  "lng": 13.40,   "city": "Germany",        "country": "Germany",        "type": "install", "count": 380},
+    {"lat": 56.13,  "lng": -106.35, "city": "Canada",         "country": "Canada",         "type": "install", "count": 280},
+    {"lat": 46.23,  "lng": 2.21,    "city": "France",         "country": "France",         "type": "install", "count": 220},
+    {"lat": 52.13,  "lng": 5.29,    "city": "Netherlands",    "country": "Netherlands",    "type": "install", "count": 180},
+    {"lat": -25.27, "lng": 133.78,  "city": "Australia",      "country": "Australia",      "type": "install", "count": 160},
+    {"lat": -14.24, "lng": -51.93,  "city": "Brazil",         "country": "Brazil",         "type": "install", "count": 140},
+    {"lat": 36.20,  "lng": 138.25,  "city": "Japan",          "country": "Japan",          "type": "install", "count": 130},
+    {"lat": 35.91,  "lng": 127.77,  "city": "South Korea",    "country": "South Korea",    "type": "install", "count": 110},
+    {"lat": 1.35,   "lng": 103.82,  "city": "Singapore",      "country": "Singapore",      "type": "install", "count": 90},
+    {"lat": 60.13,  "lng": 18.64,   "city": "Sweden",         "country": "Sweden",         "type": "install", "count": 80},
+    {"lat": 51.92,  "lng": 19.15,   "city": "Poland",         "country": "Poland",         "type": "install", "count": 75},
+    {"lat": 40.46,  "lng": -3.75,   "city": "Spain",          "country": "Spain",          "type": "install", "count": 70},
+]
+
+
+def _geo_lookup(ip):
+    if ip in _ip_geo_cache:
+        return _ip_geo_cache[ip]
+    try:
+        r = requests.get(f"https://ipapi.co/{ip}/json/", timeout=3)
+        if r.ok:
+            d = r.json()
+            lat = d.get("latitude")
+            lng = d.get("longitude")
+            if lat is not None and lng is not None:
+                geo = {
+                    "city": d.get("city", ""),
+                    "country": d.get("country_name", ""),
+                    "country_code": d.get("country_code", ""),
+                    "lat": float(lat),
+                    "lng": float(lng),
+                }
+                _ip_geo_cache[ip] = geo
+                return geo
+    except Exception:
+        pass
+    return {"city": "", "country": "", "country_code": "", "lat": None, "lng": None}
+
+
+def _clean_rate_limit():
+    cutoff = time.time() - 1800
+    expired = [k for k, ts in _rate_limit_set.items() if ts < cutoff]
+    for k in expired:
+        del _rate_limit_set[k]
+
+
+@app.route("/api/track", methods=["POST"])
+def api_track():
+    try:
+        data = request.get_json(silent=True) or {}
+        event_type = str(data.get("event_type", "page_visit"))[:64]
+        visitor_id = str(data.get("visitor_id", ""))[:64]
+        page = str(data.get("page", "/"))[:256]
+        metadata = data.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+
+        _clean_rate_limit()
+        rl_key = (visitor_id, event_type, page)
+        if rl_key in _rate_limit_set:
+            return jsonify({"ok": True})
+        _rate_limit_set[rl_key] = time.time()
+
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr).split(",")[0].strip()
+        ip_hash = hashlib.sha256(ip.encode()).hexdigest()[:16]
+
+        def _do_write():
+            try:
+                geo = _geo_lookup(ip)
+                doc = {
+                    "visitor_id": visitor_id,
+                    "event_type": event_type,
+                    "page": page,
+                    "city": geo.get("city", ""),
+                    "country": geo.get("country", ""),
+                    "country_code": geo.get("country_code", ""),
+                    "lat": geo.get("lat"),
+                    "lng": geo.get("lng"),
+                    "ip_hash": ip_hash,
+                    "ts": datetime.utcnow().isoformat() + "Z",
+                    "metadata": metadata,
+                }
+                _fs_add("visitor_events", doc)
+            except Exception as e:
+                log.warning(f"[track] write error: {e}")
+
+        threading.Thread(target=_do_write, daemon=True).start()
+    except Exception as e:
+        log.warning(f"[track] error: {e}")
+
+    return jsonify({"ok": True})
+
+
+@app.route("/api/globe-data", methods=["GET"])
+def api_globe_data():
+    import datetime as _dt
+    now = time.time()
+    if _globe_cache["data"] and now - _globe_cache["ts"] < 300:
+        return jsonify(_globe_cache["data"])
+
+    fs = _fs()
+    points = list(_PYPI_INSTALL_POINTS)
+    total_visitors = 0
+    country_set = set()
+
+    if fs:
+        try:
+            cutoff_dt = _dt.datetime.utcnow() - _dt.timedelta(days=30)
+            cutoff = cutoff_dt.isoformat() + "Z"
+            docs = list(fs.collection("visitor_events").stream())
+
+            agg = {}
+            visitor_ids = set()
+            for doc in docs:
+                d = doc.to_dict()
+                ts = d.get("ts", "")
+                if ts and str(ts) < cutoff:
+                    continue
+                lat = d.get("lat")
+                lng = d.get("lng")
+                if lat is None or lng is None:
+                    continue
+                city = d.get("city", "") or ""
+                country = d.get("country", "") or ""
+                etype = d.get("event_type", "page_visit") or "page_visit"
+                vid = d.get("visitor_id", "")
+                if vid:
+                    visitor_ids.add(vid)
+                if country:
+                    country_set.add(country)
+                key = (round(float(lat), 1), round(float(lng), 1), city, country, etype)
+                agg[key] = agg.get(key, 0) + 1
+
+            total_visitors = len(visitor_ids)
+
+            for (lat, lng, city, country, etype), count in agg.items():
+                points.append({
+                    "lat": lat, "lng": lng,
+                    "city": city, "country": country,
+                    "type": etype, "count": count,
+                })
+        except Exception as e:
+            log.warning(f"[globe-data] query error: {e}")
+
+    hardcoded_countries = {p["country"] for p in _PYPI_INSTALL_POINTS}
+    all_countries = country_set | hardcoded_countries
+
+    result = {
+        "points": points,
+        "total_visitors": total_visitors,
+        "total_countries": len(all_countries),
+        "last_updated": datetime.utcnow().isoformat() + "Z",
+    }
+    _globe_cache["data"] = result
+    _globe_cache["ts"] = now
+    return jsonify(result)
+
+
 # ─── Static Routes ───────────────────────────────────────────────────────────
 
 
