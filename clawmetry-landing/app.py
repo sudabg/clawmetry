@@ -1475,7 +1475,7 @@ def api_connect():
         <div style="background:#0d1117;border-radius:8px;padding:16px;font-family:monospace;font-size:13px;color:#22c55e;word-break:break-all;margin-bottom:20px;">{api_key}</div>
         <p style="font-size:14px;color:#374151;margin:0 0 6px;font-weight:600;">Next steps:</p>
         <ol style="font-size:14px;color:#374151;padding-left:20px;line-height:2;">
-          <li>Install: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;">pip install clawmetry</code></li>
+          <li>Install: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;">curl -fsSL https://clawmetry.com/install.sh | bash</code></li>
           <li>Run: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px;">clawmetry connect</code> and paste the key above</li>
           <li>Open <a href="https://app.clawmetry.com" style="color:#E5443A;">app.clawmetry.com</a> and enter the same key</li>
         </ol>
