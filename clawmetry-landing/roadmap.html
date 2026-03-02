@@ -255,7 +255,6 @@
 
 <!-- Legend -->
 <div class="legend">
-  <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div> Shipped</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> In progress</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div> Coming soon</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--text-dim)"></div> Planned</div>
@@ -266,17 +265,17 @@
   <div class="roadmap-inner">
     <div class="roadmap-grid">
 
-      <!-- Cloud Version - Shipped! -->
-      <div class="rcard" style="border-color:rgba(34,197,94,0.3);box-shadow:0 0 32px rgba(34,197,94,0.07);">
+      <!-- Cloud Version - In Progress -->
+      <div class="rcard" class="inprogress">
         <div class="rcard-header">
           <div class="rcard-icon">&#x2601;&#xFE0F;</div>
-          <span class="status-badge" style="background:rgba(34,197,94,0.12);color:#22c55e;border:1px solid rgba(34,197,94,0.25);">SHIPPED</span>
+          <span class="status-badge badge-inprogress">In progress</span>
         </div>
         <h3>Cloud version</h3>
-        <p>See your agents from anywhere. Connect any OpenClaw instance with one command: <code style="font-family:monospace;color:var(--accent);font-size:12px">clawmetry connect</code>. E2E encrypted. Live now at <a href="https://app.clawmetry.com" style="color:var(--accent)">app.clawmetry.com</a></p>
-        <button class="vote-btn voted" disabled>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          Shipped in v0.11.11
+        <p>See your agents from anywhere. Connect any OpenClaw instance with one command: <code style="font-family:monospace;color:var(--accent);font-size:12px">clawmetry connect</code>. E2E encrypted. E2E encrypted. Fleet dashboard for all your nodes.</p>
+        <button class="vote-btn" data-feature="cloud" onclick="castVote(this)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          I want this
         </button>
       </div>
       <!-- Security Threat Detection - In Progress -->
@@ -485,7 +484,7 @@ function subscribeRoadmap2() {
     var feature = btn.dataset.feature;
     if (voted[feature]) {
       btn.classList.add('voted');
-      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Noted, thanks';
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg> Noted, thanks';
       btn.disabled = true;
     }
   });
@@ -497,7 +496,7 @@ function castVote(btn) {
 
   btn.disabled = true;
   btn.classList.add('voted');
-  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Noted, thanks';
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg> Noted, thanks';
 
   // Persist locally
   var voted = JSON.parse(localStorage.getItem('cm_roadmap_votes') || '{}');
