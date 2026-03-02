@@ -2224,6 +2224,10 @@ def api_globe_data():
 def globe_page():
     return send_from_directory(".", "globe.html")
 
+@app.route("/pricing")
+def pricing():
+    return send_from_directory(".", "pricing.html")
+
 @app.route("/roadmap")
 def roadmap():
     return send_from_directory(".", "roadmap.html")
