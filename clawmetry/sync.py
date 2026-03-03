@@ -360,41 +360,77 @@ def sync_crons(config: dict, state: dict, paths: dict) -> int:
 
 
 def sync_session_metadata(config: dict) -> int:
-    """Sync OpenClaw session metadata (not encrypted events) to cloud sessions table."""
+    """Sync OpenClaw session metadata rows to cloud sessions table.
+    
+    Reads JSONL session files directly (HTTP API returns HTML, not JSON).
+    Extracts session_id, model, timestamps from the event stream.
+    """
     api_key = config["api_key"]
     node_id = config["node_id"]
     try:
-        import urllib.request as _ur
-        try:
-            with _ur.urlopen("http://localhost:18789/api/sessions", timeout=5) as r:
-                sessions_data = json.loads(r.read())
-        except Exception:
-            return 0
-
-        sessions = sessions_data if isinstance(sessions_data, list) else sessions_data.get("sessions", [])
-        if not sessions:
+        home = Path.home()
+        sessions_candidates = [
+            home / ".openclaw" / "agents" / "main" / "sessions",
+            Path("/data/agents/main/sessions"),
+        ]
+        sessions_dir = next((p for p in sessions_candidates if p.exists()), None)
+        if not sessions_dir:
             return 0
 
         session_rows = []
-        for s in sessions:
-            sid = s.get("sessionKey") or s.get("id") or s.get("session_id", "")
-            if not sid:
-                continue
-            session_rows.append({
-                "session_id": sid,
-                "display_name": s.get("label") or s.get("title") or s.get("display_name", ""),
-                "status": s.get("status", "unknown"),
-                "model": s.get("model", ""),
-                "total_tokens": s.get("totalTokens") or s.get("total_tokens") or 0,
-                "total_cost": s.get("totalCost") or s.get("total_cost") or 0.0,
-                "started_at": s.get("startedAt") or s.get("created_at") or s.get("started_at") or "",
-                "updated_at": s.get("updatedAt") or s.get("updated_at") or "",
-            })
+        for fpath in sorted(sessions_dir.glob("*.jsonl"))[-100:]:
+            try:
+                sid = fpath.stem  # UUID filename = session_id
+                model = ""
+                started_at = ""
+                updated_at = ""
+                total_tokens = 0
+                total_cost = 0.0
+                label = ""
+
+                with open(fpath, "r", errors="replace") as f:
+                    for raw in f:
+                        raw = raw.strip()
+                        if not raw:
+                            continue
+                        try:
+                            ev = json.loads(raw)
+                        except Exception:
+                            continue
+                        ts = ev.get("timestamp", "")
+                        if not started_at and ts:
+                            started_at = ts
+                        if ts:
+                            updated_at = ts
+                        etype = ev.get("type", "")
+                        if etype == "model_change" and ev.get("modelId"):
+                            model = ev["modelId"]
+                        elif etype == "session" and ev.get("label"):
+                            label = ev["label"]
+                        elif etype == "usage":
+                            total_tokens += ev.get("totalTokens", 0) or 0
+                            total_cost += float(ev.get("totalCost", 0.0) or 0.0)
+
+                session_rows.append({
+                    "session_id": sid,
+                    "display_name": label or sid[:8],
+                    "status": "completed",
+                    "model": model,
+                    "total_tokens": total_tokens,
+                    "total_cost": total_cost,
+                    "started_at": started_at,
+                    "updated_at": updated_at,
+                })
+            except Exception as e:
+                log.debug(f"Session parse error ({fpath.name}): {e}")
 
         if not session_rows:
             return 0
 
-        _post("/ingest/sessions", {"node_id": node_id, "sessions": session_rows}, api_key)
+        # Batch in groups of 50
+        for i in range(0, len(session_rows), 50):
+            batch = session_rows[i:i+50]
+            _post("/ingest/sessions", {"node_id": node_id, "sessions": batch}, api_key)
         return len(session_rows)
     except Exception as e:
         log.warning(f"Session metadata sync failed: {e}")
