@@ -359,6 +359,48 @@ def sync_crons(config: dict, state: dict, paths: dict) -> int:
     return 0
 
 
+def sync_session_metadata(config: dict) -> int:
+    """Sync OpenClaw session metadata (not encrypted events) to cloud sessions table."""
+    api_key = config["api_key"]
+    node_id = config["node_id"]
+    try:
+        import urllib.request as _ur
+        try:
+            with _ur.urlopen("http://localhost:18789/api/sessions", timeout=5) as r:
+                sessions_data = json.loads(r.read())
+        except Exception:
+            return 0
+
+        sessions = sessions_data if isinstance(sessions_data, list) else sessions_data.get("sessions", [])
+        if not sessions:
+            return 0
+
+        session_rows = []
+        for s in sessions:
+            sid = s.get("sessionKey") or s.get("id") or s.get("session_id", "")
+            if not sid:
+                continue
+            session_rows.append({
+                "session_id": sid,
+                "display_name": s.get("label") or s.get("title") or s.get("display_name", ""),
+                "status": s.get("status", "unknown"),
+                "model": s.get("model", ""),
+                "total_tokens": s.get("totalTokens") or s.get("total_tokens") or 0,
+                "total_cost": s.get("totalCost") or s.get("total_cost") or 0.0,
+                "started_at": s.get("startedAt") or s.get("created_at") or s.get("started_at") or "",
+                "updated_at": s.get("updatedAt") or s.get("updated_at") or "",
+            })
+
+        if not session_rows:
+            return 0
+
+        _post("/ingest/sessions", {"node_id": node_id, "sessions": session_rows}, api_key)
+        return len(session_rows)
+    except Exception as e:
+        log.warning(f"Session metadata sync failed: {e}")
+        return 0
+
+
 def sync_memory(config: dict, state: dict, paths: dict) -> int:
     """Sync memory files (MEMORY.md + memory/*.md) to cloud."""
     workspace = paths.get("workspace", "")
@@ -518,10 +560,11 @@ def run_daemon() -> None:
             lg = sync_logs(config, state, paths)
             mem = sync_memory(config, state, paths)
             crons = sync_crons(config, state, paths)
+            sm = sync_session_metadata(config)
             state["last_sync"] = datetime.now(timezone.utc).isoformat()
             save_state(state)
-            if ev or lg or mem or crons:
-                log.info(f"Synced {ev} events, {lg} log lines, {mem} memory files, {crons} crons ({enc})")
+            if ev or lg or mem or crons or sm:
+                log.info(f"Synced {ev} events, {lg} log lines, {mem} memory files, {crons} crons, {sm} session rows ({enc})")
 
             now = time.time()
             if now - last_heartbeat > heartbeat_interval:
