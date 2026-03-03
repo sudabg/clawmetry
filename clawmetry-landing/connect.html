@@ -153,7 +153,10 @@ function sendOtp(resend) {
     }).catch(function(){ btn.disabled=false; btn.textContent='Send code'; showErr('step1-err','Network error. Try again.'); });
 }
 
+var _verifying = false;
 function verifyOtp() {
+  if (_verifying) return;
+  _verifying = true;
   var otp = document.getElementById('otp').value.trim();
   hideErr('step2-err');
   if (!otp || otp.length !== 6) { showErr('step2-err','Enter the 6-digit code.'); return; }
@@ -162,7 +165,7 @@ function verifyOtp() {
   fetch('/api/otp/verify', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email:_email, otp:otp})})
     .then(function(r){return r.json();})
     .then(function(d){
-      btn.disabled=false; btn.textContent='Verify';
+      _verifying=false; btn.disabled=false; btn.textContent='Verify';
       if (d.ok && d.api_key) {
         _apiKey = d.api_key;
         var btn = document.getElementById("open-dash-btn"); if (btn) btn.href = "https://app.clawmetry.com/fleet/?token=" + encodeURIComponent(_apiKey);
