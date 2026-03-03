@@ -61,7 +61,7 @@ except ImportError:
     metrics_service_pb2 = None
     trace_service_pb2 = None
 
-__version__ = "0.11.23"
+__version__ = "0.11.24"
 
 # Extensions (Phase 2) — load plugins at import time; safe no-op if package not installed
 try:
@@ -1562,7 +1562,7 @@ DASHBOARD_HTML = r"""
   .badge-done { background:rgba(34,197,94,0.2); color:#22c55e; }
   .badge-error { background:rgba(239,68,68,0.2); color:#ef4444; }
   .badge-tool { background:rgba(148,163,184,0.2); color:#94a3b8; }
-  .brain-detail { color:var(--text-secondary); white-space:pre-wrap; word-break:break-all; flex:1; min-width:0; }
+  .brain-detail { color:var(--text-secondary); flex:1; min-width:0; overflow:hidden; }
     .nav-tab { padding: 8px 16px; border-radius: 8px; background: transparent; border: 1px solid transparent; color: var(--text-tertiary); cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; transition: all 0.2s ease; position: relative; }
   .nav-tab:hover { background: var(--bg-hover); color: var(--text-secondary); }
   .nav-tab.active { background: var(--bg-accent); color: #ffffff; border-color: var(--bg-accent); }
@@ -4121,8 +4121,36 @@ function brainSourceColor(source) {
 function formatBrainTime(isoStr) {
   try {
     var d = new Date(isoStr);
-    return d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    var now = new Date();
+    var sameDay = d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
+    var time = d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    if (sameDay) return time;
+    var date = d.toLocaleDateString('en-GB', {day:'numeric',month:'short'});
+    return date + ' ' + time;
   } catch(e) { return isoStr || ''; }
+}
+
+function renderBrainDetail(detail) {
+  if (!detail) return '';
+  var s = detail.trim();
+  // Try JSON rendering
+  var jsonMatch = s.match(/^```json\s*([\s\S]*?)```$/) || s.match(/^(\{[\s\S]*\}|\[[\s\S]*\])$/);
+  if (jsonMatch) {
+    try {
+      var obj = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      var pretty = JSON.stringify(obj, null, 2);
+      return '<pre style="background:var(--bg-tertiary,#1a1a2e);border:1px solid var(--border-primary,#333);border-radius:6px;padding:8px 10px;margin:4px 0 0;font-size:11px;color:var(--text-secondary);overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:180px;">' + escHtml(pretty) + '</pre>';
+    } catch(e) {}
+  }
+  // Inline markdown: **bold**, `code`, ```block```
+  var html = escHtml(s);
+  // Code blocks
+  html = html.replace(/```([\s\S]*?)```/g, '<pre style="background:var(--bg-tertiary,#1a1a2e);border:1px solid var(--border-primary,#333);border-radius:6px;padding:6px 10px;margin:4px 0 0;font-size:11px;overflow-x:auto;white-space:pre-wrap;max-height:180px;">$1</pre>');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code style="background:var(--bg-tertiary,#1a1a2e);padding:1px 5px;border-radius:3px;font-size:11px;">$1</code>');
+  // Bold
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  return '<span style="white-space:pre-wrap;word-break:break-word;">' + html + '</span>';
 }
 
 var _brainFilter = 'all';
@@ -5748,7 +5776,7 @@ DASHBOARD_HTML = r"""
   .badge-done { background:rgba(34,197,94,0.2); color:#22c55e; }
   .badge-error { background:rgba(239,68,68,0.2); color:#ef4444; }
   .badge-tool { background:rgba(148,163,184,0.2); color:#94a3b8; }
-  .brain-detail { color:var(--text-secondary); white-space:pre-wrap; word-break:break-all; flex:1; min-width:0; }
+  .brain-detail { color:var(--text-secondary); flex:1; min-width:0; overflow:hidden; }
     .nav-tab { padding: 8px 16px; border-radius: 8px; background: transparent; border: 1px solid transparent; color: var(--text-tertiary); cursor: pointer; font-size: 13px; font-weight: 600; white-space: nowrap; transition: all 0.2s ease; position: relative; }
   .nav-tab:hover { background: var(--bg-hover); color: var(--text-secondary); }
   .nav-tab.active { background: var(--bg-accent); color: #ffffff; border-color: var(--bg-accent); }
@@ -8307,8 +8335,36 @@ function brainSourceColor(source) {
 function formatBrainTime(isoStr) {
   try {
     var d = new Date(isoStr);
-    return d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    var now = new Date();
+    var sameDay = d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth() && d.getDate()===now.getDate();
+    var time = d.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    if (sameDay) return time;
+    var date = d.toLocaleDateString('en-GB', {day:'numeric',month:'short'});
+    return date + ' ' + time;
   } catch(e) { return isoStr || ''; }
+}
+
+function renderBrainDetail(detail) {
+  if (!detail) return '';
+  var s = detail.trim();
+  // Try JSON rendering
+  var jsonMatch = s.match(/^```json\s*([\s\S]*?)```$/) || s.match(/^(\{[\s\S]*\}|\[[\s\S]*\])$/);
+  if (jsonMatch) {
+    try {
+      var obj = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      var pretty = JSON.stringify(obj, null, 2);
+      return '<pre style="background:var(--bg-tertiary,#1a1a2e);border:1px solid var(--border-primary,#333);border-radius:6px;padding:8px 10px;margin:4px 0 0;font-size:11px;color:var(--text-secondary);overflow-x:auto;white-space:pre-wrap;word-break:break-all;max-height:180px;">' + escHtml(pretty) + '</pre>';
+    } catch(e) {}
+  }
+  // Inline markdown: **bold**, `code`, ```block```
+  var html = escHtml(s);
+  // Code blocks
+  html = html.replace(/```([\s\S]*?)```/g, '<pre style="background:var(--bg-tertiary,#1a1a2e);border:1px solid var(--border-primary,#333);border-radius:6px;padding:6px 10px;margin:4px 0 0;font-size:11px;overflow-x:auto;white-space:pre-wrap;max-height:180px;">$1</pre>');
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code style="background:var(--bg-tertiary,#1a1a2e);padding:1px 5px;border-radius:3px;font-size:11px;">$1</code>');
+  // Bold
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  return '<span style="white-space:pre-wrap;word-break:break-word;">' + html + '</span>';
 }
 
 var _brainFilter = 'all';
@@ -8410,7 +8466,7 @@ function renderBrainStream(events) {
     html += '<span class="brain-time">' + formatBrainTime(ev.time) + '</span>';
     html += '<span class="brain-source" style="color:' + color + ';flex-shrink:0;">' + escHtml(ev.sourceLabel || ev.source || 'main') + '</span>';
     html += '<span class="brain-type" style="background:rgba(100,100,100,0.15);color:' + color + ';padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700;min-width:70px;text-align:center;display:inline-block;white-space:nowrap;">' + icon + ' ' + escHtml(evType) + '</span>';
-    html += '<span class="brain-detail">' + escHtml(ev.detail || '') + '</span>';
+    html += '<span class="brain-detail">' + renderBrainDetail(ev.detail || '') + '</span>';
     html += '</div>';
   });
   el.innerHTML = html;
