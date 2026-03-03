@@ -2270,6 +2270,7 @@ def static_files(path):
         'roadmap': 'roadmap.html',
         'showcase': 'showcase.html',
         'how-it-works': 'how-it-works.html',
+        'cloud': 'cloud.html',
         'docs': 'docs.html',
         'globe': 'globe.html',
     }
@@ -2278,10 +2279,6 @@ def static_files(path):
     return send_from_directory('.', path)
 
 
-
-@app.route("/cloud")
-def cloud():
-    return send_from_directory(".", "cloud.html")
 
 @app.route("/docs")
 def docs_redirect():
