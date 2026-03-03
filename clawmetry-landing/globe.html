@@ -175,6 +175,45 @@
       border-radius: 50%;
       flex-shrink: 0;
     }
+
+    /* ── No-WebGL fallback ── */
+    #fallback-card {
+      display: none;
+      position: fixed;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 24px;
+      padding: 24px;
+    }
+    #fallback-card.visible { display: flex; }
+    .fb-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .fb-subtitle { font-size: 13px; color: var(--muted); text-align: center; max-width: 360px; }
+    .fb-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      width: 100%;
+      max-width: 440px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+    .fb-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+    }
+    .fb-flag { font-size: 18px; }
+    .fb-name { flex: 1; color: var(--text); }
+    .fb-count { color: var(--accent); font-weight: 600; font-size: 12px; }
+    .fb-stats { font-size: 13px; color: var(--muted); }
+    .fb-stats span { color: var(--text); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -237,6 +276,18 @@
     Loading install data...
   </div>
 
+  <!-- No-WebGL fallback -->
+  <div id="fallback-card">
+    <div>
+      <div class="fb-title">🌍 ClawMetry Global Installs</div>
+      <div class="fb-subtitle">PyPI downloads by country — powered by ClickHouse</div>
+    </div>
+    <div class="fb-grid" id="fb-grid"></div>
+    <div class="fb-stats">
+      <span id="fb-total">—</span> total downloads across <span id="fb-countries">—</span> countries
+    </div>
+  </div>
+
   <script src="//unpkg.com/globe.gl"></script>
   <script>
     function countryFlag(code) {
@@ -260,6 +311,37 @@
     var ttCount   = document.getElementById('tt-count');
     var loading   = document.getElementById('loading');
 
+
+    function hasWebGL() {
+      try {
+        var cv = document.createElement('canvas');
+        return !!(window.WebGLRenderingContext &&
+          (cv.getContext('webgl') || cv.getContext('experimental-webgl')));
+      } catch(e) { return false; }
+    }
+
+    function showFallback(countries, total) {
+      loading.classList.add('hidden');
+      var card = document.getElementById('fallback-card');
+      var grid = document.getElementById('fb-grid');
+      card.classList.add('visible');
+      document.getElementById('fb-total').textContent = fmt(total);
+      document.getElementById('fb-countries').textContent = countries.length;
+      // also update stats bar
+      document.getElementById('stat-total').textContent = fmt(total);
+      document.getElementById('stat-countries').textContent = countries.length + '+';
+      grid.innerHTML = '';
+      countries.slice(0, 20).forEach(function(c) {
+        var row = document.createElement('div');
+        row.className = 'fb-row';
+        row.innerHTML = '<span class="fb-flag">' + countryFlag(c.country_code) + '</span>'
+          + '<span class="fb-name">' + c.country_name + '</span>'
+          + '<span class="fb-count">' + fmt(c.downloads) + '</span>';
+        grid.appendChild(row);
+      });
+    }
+
+
     // Fallback top-10 shown immediately so globe never appears empty
     var FALLBACK = [
       {lat:37.09,lng:-95.71,downloads:12759,country_code:'US',country_name:'United States'},
@@ -273,6 +355,17 @@
       {lat:46.23,lng:2.21, downloads:548, country_code:'FR',country_name:'France'},
       {lat:52.13,lng:5.29, downloads:491, country_code:'NL',country_name:'Netherlands'},
     ];
+
+    if (!hasWebGL()) {
+      // No WebGL — fetch data and show card fallback, skip 3D globe entirely
+      loading.textContent = 'Loading...';
+      fetch('/api/pypi-countries')
+        .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function(data) {
+          showFallback(data.countries || FALLBACK, data.total_downloads || 22846);
+        })
+        .catch(function() { showFallback(FALLBACK, 22846); });
+    } else {
 
     function buildPoints(countries) {
       var dlMin = countries[countries.length - 1].downloads;
@@ -353,6 +446,8 @@
         console.warn('[globe] fetch failed:', err);
         loading.classList.add('hidden'); // hide even on error — fallback is already showing
       });
+
+    } // end hasWebGL
   </script>
 </body>
 </html>
