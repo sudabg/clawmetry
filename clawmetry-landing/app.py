@@ -2257,7 +2257,7 @@ def api_hero_stats():
         rows = _fetch_metabase_rows()
         if rows:
             total = int(sum(int(r[1]) for r in rows if r[1]))
-            result["downloads"] = f"{total // 1000}k" if total >= 1000 else str(total)
+            result["downloads"] = f"{round(total / 1000)}k" if total >= 1000 else str(total)
             result["downloads_exact"] = total
             result["countries"] = str(len([r for r in rows if r[1] and int(r[1]) > 0]))
     except Exception as e:
