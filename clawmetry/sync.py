@@ -606,11 +606,15 @@ def run_daemon() -> None:
     enc    = "🔒 E2E encrypted" if config.get("encryption_key") else "⚠️  unencrypted"
     log.info(f"Starting sync daemon — node={config['node_id']} → {INGEST_URL} ({enc})")
 
+    # Send heartbeat immediately so node appears in fleet
+    send_heartbeat(config)
+    log.info("Initial heartbeat sent")
+
     # Start real-time log streamer in background
     start_log_streamer(config, paths)
 
     heartbeat_interval = 60
-    last_heartbeat = 0.0
+    last_heartbeat = time.time()
 
     while True:
         try:
