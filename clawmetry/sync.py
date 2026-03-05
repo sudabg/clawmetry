@@ -176,12 +176,17 @@ def _detect_docker_openclaw() -> dict:
                         elif "agents" in dst:
                             result["sessions_dir"] = os.path.join(src, "main", "sessions")
                         elif dst == "/data":
-                            s = os.path.join(src, "agents", "main", "sessions")
-                            if os.path.isdir(s):
-                                result["sessions_dir"] = s
-                            w = os.path.join(src, "workspace")
-                            if os.path.isdir(w):
-                                result["workspace"] = w
+                            # Check both /data/agents/... and /data/.openclaw/agents/...
+                            for sub in ["", ".openclaw"]:
+                                s = os.path.join(src, sub, "agents", "main", "sessions") if sub else os.path.join(src, "agents", "main", "sessions")
+                                if os.path.isdir(s):
+                                    result["sessions_dir"] = s
+                                    break
+                            for sub in ["", ".openclaw"]:
+                                w = os.path.join(src, sub, "workspace") if sub else os.path.join(src, "workspace")
+                                if os.path.isdir(w):
+                                    result["workspace"] = w
+                                    break
                     if "workspace" in dst:
                         result["workspace"] = src
                     if "logs" in dst or "tmp" in dst:
