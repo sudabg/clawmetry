@@ -139,8 +139,105 @@ def validate_key(api_key: str) -> dict:
 
 # ── Path detection ─────────────────────────────────────────────────────────────
 
+
+def _detect_docker_openclaw() -> dict:
+    """Auto-detect OpenClaw running in Docker and find its data paths on the host."""
+    import subprocess, json as _json
+    result = {}
+    try:
+        # Find containers with openclaw/clawd in name or image
+        out = subprocess.run(
+            ["docker", "ps", "--format", "{{.ID}}	{{.Names}}	{{.Image}}	{{.Mounts}}"],
+            capture_output=True, text=True, timeout=5)
+        if out.returncode != 0:
+            return {}
+        for line in out.stdout.strip().splitlines():
+            parts = line.split("	")
+            if len(parts) < 3:
+                continue
+            cid, name, image = parts[0], parts[1], parts[2]
+            if not any(k in (name + image).lower() for k in ["openclaw", "clawd", "claw"]):
+                continue
+            log.info(f"Found OpenClaw Docker container: {name} ({image}) id={cid}")
+            # Get volume mounts via docker inspect
+            try:
+                insp = subprocess.run(
+                    ["docker", "inspect", "--format", "{{json .Mounts}}", cid],
+                    capture_output=True, text=True, timeout=5)
+                mounts = _json.loads(insp.stdout.strip()) if insp.returncode == 0 else []
+                for m in mounts:
+                    src = m.get("Source", "")
+                    dst = m.get("Destination", "")
+                    # Look for data/workspace/sessions mounts
+                    if "agents" in dst or "sessions" in dst or "/data" == dst or "openclaw" in dst.lower():
+                        log.info(f"  Mount: {src} -> {dst}")
+                        if "sessions" in dst:
+                            result["sessions_dir"] = src
+                        elif "agents" in dst:
+                            result["sessions_dir"] = os.path.join(src, "main", "sessions")
+                        elif dst == "/data":
+                            s = os.path.join(src, "agents", "main", "sessions")
+                            if os.path.isdir(s):
+                                result["sessions_dir"] = s
+                            w = os.path.join(src, "workspace")
+                            if os.path.isdir(w):
+                                result["workspace"] = w
+                    if "workspace" in dst:
+                        result["workspace"] = src
+                    if "logs" in dst or "tmp" in dst:
+                        result["log_dir"] = src
+            except Exception as e:
+                log.debug(f"Docker inspect error: {e}")
+            # If no volume mounts found, try docker exec to find paths
+            if not result:
+                try:
+                    for check_path in ["/root/.openclaw", "/data", "/app"]:
+                        chk = subprocess.run(
+                            ["docker", "exec", cid, "ls", f"{check_path}/agents/main/sessions"],
+                            capture_output=True, text=True, timeout=5)
+                        if chk.returncode == 0 and chk.stdout.strip():
+                            log.info(f"  Found sessions inside container at {check_path}")
+                            # Copy files out to host
+                            host_dir = Path.home() / ".clawmetry" / "docker-mirror"
+                            host_dir.mkdir(parents=True, exist_ok=True)
+                            sessions_mirror = host_dir / "sessions"
+                            workspace_mirror = host_dir / "workspace"
+                            sessions_mirror.mkdir(exist_ok=True)
+                            workspace_mirror.mkdir(exist_ok=True)
+                            # rsync from container
+                            subprocess.run(["docker", "cp", f"{cid}:{check_path}/agents/main/sessions/.", str(sessions_mirror)],
+                                           capture_output=True, timeout=30)
+                            subprocess.run(["docker", "cp", f"{cid}:{check_path}/workspace/.", str(workspace_mirror)],
+                                           capture_output=True, timeout=30)
+                            # Copy logs
+                            for log_path in ["/tmp/openclaw", f"{check_path}/logs"]:
+                                subprocess.run(["docker", "cp", f"{cid}:{log_path}/.", str(host_dir / "logs")],
+                                               capture_output=True, timeout=15)
+                            result["sessions_dir"] = str(sessions_mirror)
+                            result["workspace"] = str(workspace_mirror)
+                            result["log_dir"] = str(host_dir / "logs")
+                            result["docker_container"] = cid
+                            result["docker_path"] = check_path
+                            log.info(f"  Mirrored Docker data to {host_dir}")
+                            break
+                except Exception as e:
+                    log.debug(f"Docker exec fallback error: {e}")
+            if result:
+                return result
+    except FileNotFoundError:
+        pass  # docker not installed
+    except Exception as e:
+        log.debug(f"Docker detection error: {e}")
+    return {}
+
+
 def detect_paths() -> dict:
     home = Path.home()
+    # Try Docker detection first (OpenClaw running in container)
+    docker_paths = _detect_docker_openclaw()
+    if docker_paths.get("sessions_dir"):
+        log.info(f"Using Docker-detected paths: {docker_paths}")
+
     sessions_candidates = [
         home / ".openclaw" / "agents" / "main" / "sessions",
         Path("/data/agents/main/sessions"),
@@ -148,22 +245,21 @@ def detect_paths() -> dict:
         Path("/root/.openclaw/agents/main/sessions"),
         Path("/opt/openclaw/agents/main/sessions"),
     ]
-    # Also check OPENCLAW_HOME env var
     oc_home = os.environ.get("OPENCLAW_HOME", "")
     if oc_home:
         sessions_candidates.insert(0, Path(oc_home) / "agents" / "main" / "sessions")
-    sessions_dir = next((str(p) for p in sessions_candidates if p.exists()),
+    sessions_dir = docker_paths.get("sessions_dir") or next((str(p) for p in sessions_candidates if p.exists()),
                         str(sessions_candidates[0]))
 
     log_candidates = [Path("/tmp/openclaw"), home / ".openclaw" / "logs", Path("/data/logs")]
-    log_dir = next((str(p) for p in log_candidates if p.exists()), "/tmp/openclaw")
+    log_dir = docker_paths.get("log_dir") or next((str(p) for p in log_candidates if p.exists()), "/tmp/openclaw")
 
     workspace_candidates = [
         home / ".openclaw" / "workspace",
         Path("/data/workspace"),
         Path("/app/workspace"),
     ]
-    workspace = next((str(p) for p in workspace_candidates if p.exists()),
+    workspace = docker_paths.get("workspace") or next((str(p) for p in workspace_candidates if p.exists()),
                      str(workspace_candidates[0]))
 
     log.info(f"Paths: sessions={sessions_dir} logs={log_dir} workspace={workspace}")
@@ -677,6 +773,15 @@ def run_daemon() -> None:
             save_state(state)
             if ev or lg or mem or crons or sm:
                 log.info(f"Synced {ev} events, {lg} log lines, {mem} memory files, {crons} crons, {sm} session rows ({enc})")
+
+            # Re-mirror Docker data if running in Docker mode
+            if hasattr(detect_paths, "_docker_cid") or any("docker-mirror" in str(v) for v in paths.values()):
+                try:
+                    fresh = _detect_docker_openclaw()
+                    if fresh.get("sessions_dir"):
+                        paths.update({k: v for k, v in fresh.items() if k in paths})
+                except Exception:
+                    pass
 
             now = time.time()
             if now - last_heartbeat > heartbeat_interval:
