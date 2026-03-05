@@ -2,6 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script>
+    // If user is already logged in on app.clawmetry.com, redirect to fleet
+    // We use an iframe to check localStorage on the app domain
+    (function(){
+      var next = new URLSearchParams(window.location.search).get('next');
+      if (next === 'app') return; // Coming from app redirect, don't loop
+      var iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = 'https://app.clawmetry.com/check-auth-frame';
+      document.documentElement.appendChild(iframe);
+      window.addEventListener('message', function(e) {
+        if (e.origin === 'https://app.clawmetry.com' && e.data && e.data.hasToken) {
+          window.location.href = 'https://app.clawmetry.com/fleet/';
+        }
+      });
+      // Timeout: if no response in 2s, user isn't logged in
+      setTimeout(function(){ if(iframe.parentNode) iframe.remove(); }, 2000);
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ClawMetry - Get your API key</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
