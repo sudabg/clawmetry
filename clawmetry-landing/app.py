@@ -726,17 +726,8 @@ import hashlib as _rl_hash
 import string as _rl_string
 
 def _generate_referral_code(email):
-    """Generate a human-readable referral code from email. e.g. vivek, rahul, john3a"""
-    import re as _re_ref
-    prefix = email.lower().split("@")[0] if "@" in email else email.lower()
-    # Strip numbers and special chars to get clean name
-    clean = _re_ref.sub(r"[^a-z]", "", prefix)
-    if len(clean) < 2:
-        clean = prefix.split("@")[0][:8]
-    # Keep it short (max 12 chars) + 2 char hash suffix for uniqueness
-    name = clean[:10]
-    suffix = _rl_hash.md5(email.lower().encode()).hexdigest()[:2]
-    return f"{name}{suffix}"
+    """Generate a short anonymous referral code from email."""
+    return _rl_hash.md5(email.lower().encode()).hexdigest()[:6]
 
 def _credit_referrer(ref_code, new_email):
     """Credit the referrer with +30 days of pro access."""
