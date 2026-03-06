@@ -560,6 +560,15 @@ WELCOME_SIGNUP_HTML_TMPL = """\
       <p style="font-size:13px;color:#9ca3af;margin:0 0 12px;">A quick review helps others find ClawMetry.</p>
       <a href="https://www.producthunt.com/products/clawmetry/reviews/new" style="display:inline-block;background:#ff6154;color:#fff;font-weight:700;font-size:13px;padding:10px 24px;border-radius:8px;text-decoration:none;">Write a review &#x2192;</a>
     </div>
+    <div style="background:#0d2137;border:1px solid #1e4976;border-radius:10px;padding:20px;margin:20px 0;text-align:center;">
+      <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:8px;">&#x1F381; Give 1 month, get 1 month free</div>
+      <p style="font-size:13px;color:#9ca3af;margin:0 0 12px;">Share your referral link. For every friend who signs up, you both get 1 month of free Cloud Pro.</p>
+      <div style="background:#111827;border:1px solid #2d2d44;border-radius:8px;padding:10px 16px;font-family:monospace;font-size:13px;color:#E5443A;margin:0 0 12px;word-break:break-all;">https://clawmetry.com/ref/{referral_code}</div>
+      <div style="margin-top:8px;">
+        <a href="https://twitter.com/intent/tweet?text=I%20just%20set%20up%20ClawMetry%20to%20monitor%20my%20AI%20agents.%20Know%20what%20your%20agents%20are%20doing%2C%20right%20now.%20%F0%9F%A6%9E&url=https%3A%2F%2Fclawmetry.com%2Fref%2F{referral_code}" target="_blank" style="display:inline-block;background:#000;color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;text-decoration:none;margin:4px;">Share on X</a>
+        <a href="https://www.linkedin.com/sharing/share-offsite/?url=https%3A%2F%2Fclawmetry.com%2Fref%2F{referral_code}" target="_blank" style="display:inline-block;background:#0077b5;color:#fff;padding:6px 14px;border-radius:6px;font-size:12px;text-decoration:none;margin:4px;">Share on LinkedIn</a>
+      </div>
+    </div>
     <p style="font-size:15px;color:#d1d5db;">Cheers,<br><strong style="color:#fff;">Vivek</strong> &#x1F99E;</p>
   </div>
   <div style="border-top:1px solid #1f1f2e;padding:20px 28px;text-align:center;">
@@ -571,10 +580,11 @@ WELCOME_SIGNUP_HTML_TMPL = """\
 """
 
 
-def send_signup_welcome_email(email, api_key):
+def send_signup_welcome_email(email, api_key, referral_code=""):
     """Send welcome email with API key to new OTP signups. Reply goes to vivek@clawmetry.com."""
     subject = "Welcome to ClawMetry - your API key inside \U0001f99e"
-    html = WELCOME_SIGNUP_HTML_TMPL.format(api_key=api_key)
+    referral_code_val = referral_code or _generate_referral_code(email)
+    html = WELCOME_SIGNUP_HTML_TMPL.format(api_key=api_key, referral_code=referral_code_val)
     ok, resp = _resend_post("/emails", {
         "from": FROM_EMAIL, "to": [email], "bcc": ["vivek@clawmetry.com"],
         "reply_to": ["vivek@clawmetry.com"],
@@ -709,6 +719,114 @@ VALID_FEATURES = {
     'cloud', 'alerting', 'hitl', 'mac-app',
     'ios-app', 'android-app', 'frameworks', 'team', 'cost'
 }
+
+
+
+import hashlib as _rl_hash
+import string as _rl_string
+
+def _generate_referral_code(email):
+    """Generate a short, unique referral code from email."""
+    h = _rl_hash.md5(email.lower().encode()).hexdigest()[:8]
+    return f"CM{h.upper()}"
+
+def _credit_referrer(ref_code, new_email):
+    """Credit the referrer with +30 days of pro access."""
+    if not ref_code or not _firestore_available:
+        return
+    try:
+        import datetime as _dt_ref
+        # Find the referrer by their referral_code
+        fs = _firestore_db
+        docs = list(fs.collection("api_keys").where("referral_code", "==", ref_code).limit(1).stream())
+        if not docs:
+            log.warning(f"[referral] code {ref_code} not found")
+            return
+        referrer_doc = docs[0]
+        referrer_data = referrer_doc.to_dict()
+        referrer_email = referrer_data.get("email", "")
+
+        # Don't allow self-referral
+        if referrer_email.lower() == new_email.lower():
+            return
+
+        # Track the referral
+        fs.collection("referrals").add({
+            "referrer_code": ref_code,
+            "referrer_email": referrer_email,
+            "referred_email": new_email,
+            "created_at": _dt_ref.datetime.utcnow().isoformat() + "Z",
+            "reward": "30_days_pro",
+        })
+
+        # Extend referrer's pro access by 30 days
+        current_plan = referrer_data.get("plan", "trial")
+        current_expires = referrer_data.get("coupon_expires", "")
+        now = _dt_ref.datetime.now(_dt_ref.timezone.utc)
+
+        if current_expires:
+            try:
+                base = _dt_ref.datetime.fromisoformat(current_expires.replace("Z", "+00:00"))
+                if base < now:
+                    base = now
+            except Exception:
+                base = now
+        elif current_plan in ("cloud_pro", "pro"):
+            # Already paid, extend from far future or just track
+            base = now + _dt_ref.timedelta(days=365)
+        else:
+            base = now
+
+        new_expires = base + _dt_ref.timedelta(days=30)
+        referrer_doc.reference.update({
+            "plan": "cloud_pro",
+            "coupon_expires": new_expires.isoformat(),
+            "referral_months_earned": (referrer_data.get("referral_months_earned", 0) or 0) + 1,
+        })
+
+        log.info(f"[referral] {referrer_email} earned +30 days (referred {new_email}), pro until {new_expires.date()}")
+
+        # Notify referrer
+        try:
+            _resend_post("/emails", {
+                "from": FROM_EMAIL,
+                "to": [referrer_email],
+                "reply_to": ["vivek@clawmetry.com"],
+                "subject": "You earned 1 month free! \U0001f389",
+                "html": f"""<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:520px;margin:0 auto;padding:32px 24px;background:#ffffff;color:#111;">
+                    <div style="font-size:48px;text-align:center;margin-bottom:16px;">\U0001f381</div>
+                    <h2 style="text-align:center;margin:0 0 16px;">You earned 1 month of free ClawMetry Cloud!</h2>
+                    <p style="font-size:15px;line-height:1.7;color:#333;">Someone signed up using your referral link. As a thank you, we have extended your Cloud Pro access by 30 days.</p>
+                    <p style="font-size:15px;line-height:1.7;color:#333;">Keep sharing to earn more free months!</p>
+                    <div style="text-align:center;margin:24px 0;">
+                        <a href="https://app.clawmetry.com" style="display:inline-block;background:#E5443A;color:#fff;font-weight:700;font-size:14px;padding:10px 24px;border-radius:8px;text-decoration:none;">Open Dashboard</a>
+                    </div>
+                    <p style="font-size:13px;color:#666;">Your referral code: <strong>{ref_code}</strong></p>
+                </div>""",
+            })
+        except Exception:
+            pass
+
+        # Notify Vivek
+        try:
+            _resend_post("/emails", {
+                "from": FROM_EMAIL,
+                "to": ["vivekchand19@gmail.com"],
+                "subject": f"Referral conversion: {referrer_email} referred {new_email}",
+                "html": f"<p><strong>{referrer_email}</strong> (code: {ref_code}) referred <strong>{new_email}</strong>. Referrer earned +30 days pro.</p>",
+            })
+        except Exception:
+            pass
+
+    except Exception as e:
+        log.error(f"[referral] credit error: {e}")
+
+
+@app.route("/ref/<code>")
+def referral_redirect(code):
+    """Redirect referral links to connect page with ref tracking."""
+    return redirect(f"/connect?ref={code}")
+
 
 @app.route("/api/roadmap-vote", methods=["POST"])
 def roadmap_vote():
@@ -1504,6 +1622,7 @@ def api_otp_verify():
         return jsonify({"ok": True, "api_key": existing_key, "new": False})
 
     # Create new API key
+    ref_code = request.json.get("ref", "") or ""
     api_key = "cm_" + uuid.uuid4().hex
     created_at = _now_iso()
     _fs_add("api_keys", {
@@ -1512,6 +1631,8 @@ def api_otp_verify():
         "node_name": "",
         "created_at": created_at,
         "status": "active",
+        "referral_code": _generate_referral_code(email),
+        "referred_by": ref_code,
     })
 
     # Subscribe to Resend audience
@@ -1524,10 +1645,14 @@ def api_otp_verify():
     import threading
     def _send_welcome():
         try:
-            send_signup_welcome_email(email, api_key)
+            send_signup_welcome_email(email, api_key, _generate_referral_code(email))
         except Exception as e:
             log.warning(f"[otp/verify] welcome email failed for {email}: {e}")
     threading.Thread(target=_send_welcome, daemon=True).start()
+
+    # Credit referrer if ref code provided
+    if ref_code:
+        threading.Thread(target=_credit_referrer, args=(ref_code, email), daemon=True).start()
 
     # Notify Vivek
     def _notify():
