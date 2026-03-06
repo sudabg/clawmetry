@@ -2533,7 +2533,7 @@ def index():
 
 @app.route("/new")
 def new_landing():
-    return send_from_directory(".", "index.html")
+    return send_from_directory(".", "new.html")
 
 
 @app.route("/old")
