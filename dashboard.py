@@ -2555,6 +2555,31 @@ DASHBOARD_HTML = r"""
   @keyframes pulse { 0%,100% { opacity: 1; box-shadow: 0 0 4px #16a34a; } 50% { opacity: 0.3; box-shadow: none; } }
   .live-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; background: var(--bg-success); color: var(--text-success); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; animation: pulse 1.5s infinite; }
 
+  /* Alert Bell */
+  .alert-bell-btn { position: relative; background: none; border: none; cursor: pointer; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-tertiary); transition: background 0.15s, color 0.15s; flex-shrink: 0; }
+  .alert-bell-btn:hover { background: var(--bg-hover); color: var(--text-secondary); }
+  .alert-bell-btn.has-alerts { color: #ef4444; animation: bell-shake 2s ease-in-out infinite; }
+  @keyframes bell-shake { 0%,100%{transform:rotate(0)} 10%{transform:rotate(-12deg)} 20%{transform:rotate(10deg)} 30%{transform:rotate(-8deg)} 40%{transform:rotate(6deg)} 50%{transform:rotate(0)} }
+  .alert-bell-badge { position: absolute; top: 2px; right: 2px; background: #ef4444; color: #fff; border-radius: 50%; font-size: 9px; font-weight: 700; min-width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; padding: 0 2px; line-height: 1; border: 1.5px solid var(--bg-primary); }
+  .alert-panel { position: fixed; top: 52px; right: 12px; width: 360px; max-height: 480px; background: var(--bg-primary); border: 1px solid var(--border-primary); border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,0.18); z-index: 1300; display: none; flex-direction: column; overflow: hidden; }
+  .alert-panel.open { display: flex; }
+  .alert-panel-header { padding: 14px 16px 10px; border-bottom: 1px solid var(--border-secondary); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .alert-panel-title { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+  .alert-panel-actions { display: flex; gap: 6px; }
+  .alert-panel-body { overflow-y: auto; flex: 1; }
+  .alert-panel-item { padding: 10px 16px; border-bottom: 1px solid var(--border-secondary); display: flex; gap: 10px; align-items: flex-start; }
+  .alert-panel-item:last-child { border-bottom: none; }
+  .alert-panel-item .alert-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; flex-shrink: 0; margin-top: 4px; }
+  .alert-panel-item .alert-dot.acked { background: #22c55e; }
+  .alert-panel-item .alert-text { flex: 1; }
+  .alert-panel-item .alert-type-badge { display: inline-block; background: #fee2e2; color: #991b1b; border-radius: 4px; font-size: 10px; font-weight: 700; padding: 1px 5px; margin-right: 4px; }
+  [data-theme="dark"] .alert-type-badge { background: #450a0a; color: #fca5a5; }
+  .alert-panel-item .alert-msg { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.4; }
+  .alert-panel-item .alert-time { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  .alert-panel-item .ack-btn { background: none; border: 1px solid var(--border-primary); border-radius: 5px; color: var(--text-muted); font-size: 10px; padding: 2px 6px; cursor: pointer; flex-shrink: 0; margin-top: 2px; }
+  .alert-panel-item .ack-btn:hover { background: var(--bg-hover); }
+  .alert-panel-empty { padding: 28px 16px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
   .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
   .badge.model { background: var(--bg-hover); color: var(--text-accent); }
   .badge.channel { background: var(--bg-hover); color: #7c3aed; }
@@ -3089,8 +3114,11 @@ function clawmetryLogout(){
 <div class="nav">
   <h1><span>🦞</span> ClawMetry</h1>
   <div class="theme-toggle" onclick="var o=document.getElementById('gw-setup-overlay');o.dataset.mandatory='false';document.getElementById('gw-setup-close').style.display='';o.style.display='flex'" title="Gateway settings" style="cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
-  <!-- Budget & Alerts hidden until mature -->
-  <!-- <div class="theme-toggle" onclick="openBudgetModal()" title="Budget & Alerts" style="cursor:pointer;">&#128176;</div> -->
+  <!-- Alert Bell -->
+  <button class="alert-bell-btn" id="alert-bell-btn" onclick="toggleAlertPanel()" title="Alerts">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+    <span class="alert-bell-badge" id="alert-bell-badge" style="display:none"></span>
+  </button>
   <div class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme"><svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></div>
   <div class="theme-toggle" id="logout-btn" onclick="clawmetryLogout()" title="Logout" style="display:none;cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
   <div class="zoom-controls">
@@ -3108,6 +3136,7 @@ function clawmetryLogout(){
     <!-- <div class="nav-tab" onclick="switchTab('history')">History</div> -->
     <div class="nav-tab" onclick="switchTab('memory-history')">Main Agent</div>
     <div class="nav-tab" onclick="switchTab('tasks-history')">Sub Agents</div>
+    <div class="nav-tab" onclick="switchTab('transcripts')">Transcripts</div>
   </div>
 </div>
 
@@ -3117,6 +3146,20 @@ function clawmetryLogout(){
   <span id="alert-banner-msg" style="flex:1;"></span>
   <button onclick="ackAllAlerts()" style="background:var(--text-error);color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:600;">Dismiss</button>
   <button id="alert-resume-btn" onclick="resumeGateway()" style="display:none;background:#16a34a;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:600;">Resume Gateway</button>
+</div>
+
+<!-- Alert Bell Panel -->
+<div class="alert-panel" id="alert-panel">
+  <div class="alert-panel-header">
+    <span class="alert-panel-title">&#128276; Alerts</span>
+    <div class="alert-panel-actions">
+      <button onclick="ackAllAlertsPanel()" style="font-size:11px;padding:3px 10px;border:1px solid var(--border-primary);border-radius:6px;background:none;cursor:pointer;color:var(--text-secondary);" title="Dismiss all">Dismiss all</button>
+      <button onclick="closeAlertPanel()" style="background:var(--button-bg);border:1px solid var(--border-primary);border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:14px;color:var(--text-tertiary);display:flex;align-items:center;justify-content:center;">&times;</button>
+    </div>
+  </div>
+  <div class="alert-panel-body" id="alert-panel-body">
+    <div class="alert-panel-empty">Loading…</div>
+  </div>
 </div>
 
 <!-- Budget Settings Modal -->
@@ -3527,6 +3570,7 @@ function clawmetryLogout(){
   <div class="refresh-bar">
     <button class="refresh-btn" onclick="loadTranscripts()">↻ Refresh</button>
     <button class="refresh-btn" id="transcript-back-btn" style="display:none" onclick="showTranscriptList()">← Back to list</button>
+    <input id="transcript-search" type="text" placeholder="Filter sessions…" oninput="filterTranscripts()" style="display:none;padding:5px 10px;border-radius:7px;border:1px solid var(--border-primary);background:var(--bg-secondary);color:var(--text-primary);font-size:12px;width:200px;">
   </div>
   <div class="card" id="transcript-list">Loading...</div>
   <div id="transcript-viewer" style="display:none">
@@ -4110,11 +4154,95 @@ async function loadAlertHistory() {
   }
 }
 
+var _alertPanelOpen = false;
+
+function toggleAlertPanel() {
+  _alertPanelOpen = !_alertPanelOpen;
+  var panel = document.getElementById('alert-panel');
+  if (_alertPanelOpen) {
+    panel.classList.add('open');
+    renderAlertPanel();
+  } else {
+    panel.classList.remove('open');
+  }
+}
+
+function closeAlertPanel() {
+  _alertPanelOpen = false;
+  document.getElementById('alert-panel').classList.remove('open');
+}
+
+// Close panel when clicking outside
+document.addEventListener('click', function(e) {
+  if (!_alertPanelOpen) return;
+  var panel = document.getElementById('alert-panel');
+  var bell = document.getElementById('alert-bell-btn');
+  if (!panel.contains(e.target) && !bell.contains(e.target)) closeAlertPanel();
+});
+
+async function renderAlertPanel() {
+  var body = document.getElementById('alert-panel-body');
+  try {
+    var data = await fetch('/api/alerts/history?limit=30').then(function(r){return r.json();});
+    var alerts = data.alerts || [];
+    if (alerts.length === 0) {
+      body.innerHTML = '<div class="alert-panel-empty">&#10003; No alerts — all clear!</div>';
+      return;
+    }
+    var html = '';
+    alerts.forEach(function(a) {
+      var ts = new Date(a.fired_at * 1000);
+      var now = new Date();
+      var diffMs = now - ts;
+      var timeStr;
+      if (diffMs < 60000) timeStr = 'just now';
+      else if (diffMs < 3600000) timeStr = Math.floor(diffMs/60000) + 'm ago';
+      else if (diffMs < 86400000) timeStr = Math.floor(diffMs/3600000) + 'h ago';
+      else timeStr = ts.toLocaleDateString();
+      var isAcked = a.acknowledged;
+      html += '<div class="alert-panel-item">';
+      html += '<div class="alert-dot' + (isAcked ? ' acked' : '') + '"></div>';
+      html += '<div class="alert-text">';
+      html += '<span class="alert-type-badge">' + escHtml((a.type||'alert').replace(/_/g,' ')) + '</span>';
+      html += '<div class="alert-msg">' + escHtml(a.message || '') + '</div>';
+      html += '<div class="alert-time">' + timeStr + '</div>';
+      html += '</div>';
+      if (!isAcked) {
+        html += '<button class="ack-btn" onclick="ackAlert(' + a.id + ')">✓ Ack</button>';
+      }
+      html += '</div>';
+    });
+    body.innerHTML = html;
+  } catch(e) {
+    body.innerHTML = '<div class="alert-panel-empty" style="color:var(--text-error);">Failed to load alerts</div>';
+  }
+}
+
+async function ackAlert(id) {
+  try {
+    await fetch('/api/alerts/history/' + id + '/ack', {method: 'POST'});
+    await checkActiveAlerts();
+    if (_alertPanelOpen) renderAlertPanel();
+  } catch(e) {}
+}
+
 async function checkActiveAlerts() {
   try {
     var data = await fetch('/api/alerts/active').then(function(r){return r.json();});
     var alerts = data.alerts || [];
     var banner = document.getElementById('alert-banner');
+    var bell = document.getElementById('alert-bell-btn');
+    var badge = document.getElementById('alert-bell-badge');
+    // Update bell badge
+    if (alerts.length > 0) {
+      badge.textContent = alerts.length > 9 ? '9+' : alerts.length;
+      badge.style.display = 'flex';
+      bell.classList.add('has-alerts');
+    } else {
+      badge.style.display = 'none';
+      bell.classList.remove('has-alerts');
+    }
+    // Update banner
     if(alerts.length === 0) {
       banner.style.display = 'none';
       return;
@@ -4129,15 +4257,21 @@ async function checkActiveAlerts() {
   } catch(e) {}
 }
 
-async function ackAllAlerts() {
+async function ackAllAlertsPanel() {
   try {
     var data = await fetch('/api/alerts/active').then(function(r){return r.json();});
     var alerts = data.alerts || [];
     for(var i=0; i<alerts.length; i++) {
       await fetch('/api/alerts/history/'+alerts[i].id+'/ack', {method:'POST'});
     }
-    document.getElementById('alert-banner').style.display = 'none';
+    await checkActiveAlerts();
+    if (_alertPanelOpen) renderAlertPanel();
   } catch(e) {}
+}
+
+async function ackAllAlerts() {
+  await ackAllAlertsPanel();
+  document.getElementById('alert-banner').style.display = 'none';
 }
 
 // Check alerts every 30s
@@ -5807,34 +5941,58 @@ function exportUsageData() {
 }
 
 // ===== Transcripts =====
+var _allTranscripts = [];
+
 async function loadTranscripts() {
   try {
     var data = await fetch('/api/transcripts').then(r => r.json());
-    var html = '';
-    data.transcripts.forEach(function(t) {
-      html += '<div class="transcript-item" onclick="viewTranscript(\'' + escHtml(t.id) + '\')">';
-      html += '<div><div class="transcript-name">' + escHtml(t.name) + '</div>';
-      html += '<div class="transcript-meta-row">';
-      html += '<span>' + t.messages + ' messages</span>';
-      html += '<span>' + (t.size > 1024 ? (t.size/1024).toFixed(1) + ' KB' : t.size + ' B') + '</span>';
-      html += '<span>' + timeAgo(t.modified) + '</span>';
-      html += '</div></div>';
-      html += '<span style="color:#444;font-size:18px;">▸</span>';
-      html += '</div>';
-    });
-    document.getElementById('transcript-list').innerHTML = html || '<div style="padding:16px;color:#666;">No transcript files found</div>';
+    _allTranscripts = data.transcripts || [];
+    renderTranscriptList(_allTranscripts);
     document.getElementById('transcript-list').style.display = '';
     document.getElementById('transcript-viewer').style.display = 'none';
     document.getElementById('transcript-back-btn').style.display = 'none';
+    // Show search bar
+    var search = document.getElementById('transcript-search');
+    search.style.display = _allTranscripts.length > 5 ? '' : 'none';
+    search.value = '';
   } catch(e) {
     document.getElementById('transcript-list').innerHTML = '<div style="padding:16px;color:#666;">Failed to load transcripts</div>';
   }
+}
+
+function renderTranscriptList(transcripts) {
+  var html = '';
+  transcripts.forEach(function(t) {
+    html += '<div class="transcript-item" onclick="viewTranscript(\'' + escHtml(t.id) + '\')">';
+    html += '<div style="flex:1;min-width:0;">';
+    html += '<div class="transcript-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + escHtml(t.name) + '</div>';
+    html += '<div class="transcript-meta-row">';
+    html += '<span>' + t.messages + ' msg</span>';
+    html += '<span>' + (t.size > 1024 ? (t.size/1024).toFixed(1) + ' KB' : t.size + ' B') + '</span>';
+    html += '<span>' + timeAgo(t.modified) + '</span>';
+    html += '</div></div>';
+    html += '<span style="color:var(--text-muted);font-size:18px;flex-shrink:0;">▸</span>';
+    html += '</div>';
+  });
+  document.getElementById('transcript-list').innerHTML = html ||
+    '<div style="padding:28px;text-align:center;color:var(--text-muted);">No transcript files found</div>';
+}
+
+function filterTranscripts() {
+  var q = (document.getElementById('transcript-search').value || '').toLowerCase().trim();
+  if (!q) { renderTranscriptList(_allTranscripts); return; }
+  var filtered = _allTranscripts.filter(function(t) {
+    return (t.name || '').toLowerCase().includes(q) || (t.id || '').toLowerCase().includes(q);
+  });
+  renderTranscriptList(filtered);
 }
 
 function showTranscriptList() {
   document.getElementById('transcript-list').style.display = '';
   document.getElementById('transcript-viewer').style.display = 'none';
   document.getElementById('transcript-back-btn').style.display = 'none';
+  var search = document.getElementById('transcript-search');
+  search.style.display = _allTranscripts.length > 5 ? '' : 'none';
 }
 
 async function viewTranscript(sessionId) {
