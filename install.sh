@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -e
 
-CLAWMETRY_INGEST="https://ingest.clawmetry.com"
 CLAWMETRY_APP="https://app.clawmetry.com"
 
 # Colors
@@ -37,11 +36,15 @@ echo -e "  ${CYAN}→${NC} Installing ClawMetry..."
 python3 -m pip install --upgrade clawmetry --quiet
 
 CLAWMETRY_VERSION=$(python3 -c "import clawmetry; print(getattr(clawmetry, '__version__', '?'))" 2>/dev/null || clawmetry --version 2>/dev/null | head -1 || echo "?")
-echo -e "  ${GREEN}✓${NC} ClawMetry installed"
+echo -e "  ${GREEN}✓${NC} ClawMetry ${CLAWMETRY_VERSION} installed"
 echo ""
 
-# Run connect wizard
-clawmetry connect
+# Run connect wizard (skip in non-interactive / piped environments)
+if [ -e /dev/tty ] && [ -z "${CI:-}" ]; then
+  clawmetry connect < /dev/tty
+else
+  echo -e "  ${CYAN}->${NC} Run ${BOLD}clawmetry connect${NC} to link to ClawMetry Cloud"
+fi
 
 echo ""
 echo -e "  ${GREEN}${BOLD}Done!${NC} Open ${CYAN}${CLAWMETRY_APP}${NC} to see your agents."
