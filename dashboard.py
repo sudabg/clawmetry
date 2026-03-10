@@ -51,7 +51,7 @@ except ImportError:
     metrics_service_pb2 = None
     trace_service_pb2 = None
 
-__version__ = "0.9.20"
+__version__ = "0.9.21"
 
 # ── Turso Cloud Sync (optional) ─────────────────────────────────────────
 try:
@@ -364,6 +364,86 @@ def _start_metrics_flush_thread():
 def _has_otel_data():
     """Check if we have any OTLP metrics data."""
     return any(len(metrics_store[k]) > 0 for k in metrics_store)
+
+
+# ── CPU / RAM Sparkline Ring Buffer ────────────────────────────────────
+# Stores last 60 readings (sampled every 10 s) for sparklines in UI.
+_cpu_ram_history = deque(maxlen=60)
+_cpu_ram_lock = threading.Lock()
+_net_io_prev = None  # track previous net counters for rate calc
+
+
+def _sample_cpu_ram():
+    """Collect one CPU/RAM/temp/net sample and append to ring buffer."""
+    global _net_io_prev
+    sample = {'ts': int(time.time())}
+    try:
+        import psutil
+        sample['cpu'] = round(psutil.cpu_percent(interval=None), 1)
+        sample['ram'] = round(psutil.virtual_memory().percent, 1)
+        # CPU temperature — pick best source
+        try:
+            temps = psutil.sensors_temperatures()
+            if temps:
+                # Prefer coretemp Package, then acpitz, then first available
+                pkg = None
+                for key in ('coretemp', 'k10temp', 'acpitz', 'cpu_thermal'):
+                    if key in temps:
+                        for entry in temps[key]:
+                            if 'package' in entry.label.lower() or not entry.label:
+                                pkg = entry
+                                break
+                        if pkg:
+                            break
+                if not pkg:
+                    for entries in temps.values():
+                        if entries:
+                            pkg = entries[0]
+                            break
+                if pkg:
+                    sample['temp'] = round(pkg.current, 1)
+        except Exception:
+            pass
+        # Network I/O rates (bytes/s since last sample)
+        try:
+            net = psutil.net_io_counters()
+            if _net_io_prev is not None:
+                elapsed = sample['ts'] - _net_io_prev['ts']
+                if elapsed > 0:
+                    sample['net_rx'] = max(0, int((net.bytes_recv - _net_io_prev['recv']) / elapsed))
+                    sample['net_tx'] = max(0, int((net.bytes_sent - _net_io_prev['sent']) / elapsed))
+            _net_io_prev = {'ts': sample['ts'], 'recv': net.bytes_recv, 'sent': net.bytes_sent}
+        except Exception:
+            pass
+    except ImportError:
+        pass
+    with _cpu_ram_lock:
+        _cpu_ram_history.append(sample)
+
+
+def _cpu_ram_poll_loop():
+    """Background thread: sample CPU/RAM every 10 seconds."""
+    # Prime net_io baseline before first real sample
+    try:
+        import psutil
+        global _net_io_prev
+        net = psutil.net_io_counters()
+        _net_io_prev = {'ts': int(time.time()), 'recv': net.bytes_recv, 'sent': net.bytes_sent}
+    except Exception:
+        pass
+    while True:
+        try:
+            _sample_cpu_ram()
+        except Exception:
+            pass
+        time.sleep(10)
+
+
+def _start_cpu_ram_poll_thread():
+    """Start background CPU/RAM polling thread."""
+    t = threading.Thread(target=_cpu_ram_poll_loop, daemon=True)
+    t.name = 'cpu-ram-poller'
+    t.start()
 
 
 # ── Multi-Node Fleet Database ───────────────────────────────────────────
@@ -3414,12 +3494,16 @@ function clawmetryLogout(){
       <!-- System Health Panel (inside tasks pane) -->
       <div id="system-health-panel" style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:12px;padding:16px;margin-top:14px;box-shadow:var(--card-shadow);">
         <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:12px;">🏥 System Health</div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Services</div>
-        <div id="sh-services" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Disk Usage</div>
-        <div id="sh-disks" style="margin-bottom:14px;"></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">CPU</div>
+        <div id="sh-cpu" style="margin-bottom:14px;"></div>
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Memory</div>
         <div id="sh-memory" style="margin-bottom:14px;"></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Network I/O</div>
+        <div id="sh-network" style="margin-bottom:14px;"></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Disk Usage</div>
+        <div id="sh-disks" style="margin-bottom:14px;"></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Services</div>
+        <div id="sh-services" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Cron Jobs</div>
         <div id="sh-crons" style="margin-bottom:14px;"></div>
         <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Sub-Agents (24h)</div>
@@ -5703,6 +5787,38 @@ function startHealthStream() {
 }
 
 // ===== System Health Panel =====
+
+// Render a mini SVG sparkline from an array of values (0-100)
+function _shSparkline(values, color, w, h) {
+  if (!values || values.length < 2) return '';
+  w = w || 120; h = h || 28;
+  var max = Math.max.apply(null, values) || 1;
+  var min = Math.min.apply(null, values);
+  var range = max - min || 1;
+  var pts = values.map(function(v, i) {
+    var x = (i / (values.length - 1)) * w;
+    var y = h - ((v - min) / range) * (h - 4) - 2;
+    return x.toFixed(1) + ',' + y.toFixed(1);
+  });
+  var area = 'M' + pts[0];
+  for (var i = 1; i < pts.length; i++) area += ' L' + pts[i];
+  var fill = area + ' L' + (w) + ',' + h + ' L0,' + h + ' Z';
+  return '<svg width="' + w + '" height="' + h + '" style="display:block;" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none">'
+    + '<defs><linearGradient id="sg_' + color.replace('#','') + '" x1="0" y1="0" x2="0" y2="1">'
+    + '<stop offset="0%" stop-color="' + color + '" stop-opacity="0.3"/>'
+    + '<stop offset="100%" stop-color="' + color + '" stop-opacity="0.02"/>'
+    + '</linearGradient></defs>'
+    + '<path d="' + fill + '" fill="url(#sg_' + color.replace('#','') + ')" />'
+    + '<path d="M' + pts.join(' L') + '" fill="none" stroke="' + color + '" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>'
+    + '</svg>';
+}
+
+function _fmtBytes(bps) {
+  if (bps >= 1048576) return (bps / 1048576).toFixed(1) + ' MB/s';
+  if (bps >= 1024) return (bps / 1024).toFixed(0) + ' KB/s';
+  return bps + ' B/s';
+}
+
 async function loadSystemHealth() {
   try {
     var d = await fetch('/api/system-health').then(function(r) {
@@ -5714,12 +5830,90 @@ async function loadSystemHealth() {
     var crons = (d.crons && typeof d.crons === 'object') ? d.crons : {enabled: 0, ok24h: 0, failed: []};
     var subagents = (d.subagents && typeof d.subagents === 'object') ? d.subagents : {runs: 0, successPct: 0};
     var memory = (d.memory && typeof d.memory === 'object') ? d.memory : {};
+    var cpu = (d.cpu && typeof d.cpu === 'object') ? d.cpu : {};
+    var network = (d.network && typeof d.network === 'object') ? d.network : {};
+    var sparklines = Array.isArray(d.sparklines) ? d.sparklines : [];
+
+    // Extract sparkline series
+    var cpuSeries = sparklines.map(function(s) { return s.cpu || 0; });
+    var ramSeries = sparklines.map(function(s) { return s.ram || 0; });
+
+    // CPU section
+    var cpuEl = document.getElementById('sh-cpu');
+    if (cpuEl) {
+      if (cpu && typeof cpu.pct === 'number') {
+        var cpuColor = cpu.pct > 90 ? '#dc2626' : (cpu.pct > 70 ? '#d97706' : '#6366f1');
+        var tempBadge = '';
+        if (typeof cpu.temp === 'number') {
+          var tc = cpu.temp;
+          var tColor = tc >= (cpu.temp_crit || 95) ? '#dc2626' : (tc >= (cpu.temp_high || 80) ? '#d97706' : '#16a34a');
+          tempBadge = '<span style="margin-left:8px;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;background:rgba(0,0,0,0.2);color:' + tColor + ';">🌡 ' + tc + '°C</span>';
+        }
+        var perCorePills = '';
+        if (Array.isArray(cpu.per_core) && cpu.per_core.length) {
+          perCorePills = '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;">';
+          cpu.per_core.forEach(function(p, i) {
+            var pc = p > 90 ? '#dc2626' : (p > 70 ? '#d97706' : '#6366f1');
+            perCorePills += '<div title="Core ' + i + ': ' + p + '%" style="width:32px;padding:3px 0;text-align:center;border-radius:4px;font-size:10px;font-weight:700;background:rgba(' + (p > 70 ? '217,119,6' : '99,102,241') + ',0.15);color:' + pc + ';">' + p + '%</div>';
+          });
+          perCorePills += '</div>';
+        }
+        cpuEl.innerHTML = '<div style="margin-bottom:8px;">'
+          + '<div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px;">'
+          + '<span style="font-weight:600;color:var(--text-primary);">CPU' + (cpu.cores ? ' (' + cpu.cores + ' cores)' : '') + '</span>'
+          + '<span style="display:flex;align-items:center;color:' + cpuColor + ';font-weight:700;">' + cpu.pct + '%' + tempBadge + '</span></div>'
+          + '<div style="background:rgba(0,0,0,0.2);border-radius:6px;height:10px;overflow:hidden;">'
+          + '<div style="width:' + Math.min(100, cpu.pct) + '%;height:100%;background:' + cpuColor + ';border-radius:6px;transition:width 0.5s;"></div>'
+          + '</div>' + perCorePills + '</div>'
+          + (cpuSeries.length >= 2 ? '<div style="margin-top:6px;border-radius:6px;overflow:hidden;background:rgba(0,0,0,0.15);">' + _shSparkline(cpuSeries, cpuColor, 260, 32) + '</div>' : '');
+      } else {
+        cpuEl.innerHTML = '<div style="padding:8px 10px;background:var(--bg-secondary);border:1px solid var(--border-secondary);border-radius:8px;font-size:12px;color:var(--text-muted);">CPU data unavailable (install psutil)</div>';
+      }
+    }
+
+    // Memory
+    var mhtml = '';
+    if (memory && memory.pct > 0) {
+      var memColor = memory.pct > 90 ? '#dc2626' : (memory.pct > 80 ? '#d97706' : '#10b981');
+      mhtml = '<div style="margin-bottom:8px;">'
+        + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:6px;">'
+        + '<span style="font-weight:600;color:var(--text-primary);">RAM</span>'
+        + '<span style="color:' + memColor + ';font-weight:700;">' + memory.used_gb + ' / ' + memory.total_gb + ' GB (' + memory.pct + '%)</span></div>'
+        + '<div style="background:rgba(0,0,0,0.2);border-radius:6px;height:10px;overflow:hidden;">'
+        + '<div style="width:' + Math.min(100, memory.pct) + '%;height:100%;background:' + memColor + ';border-radius:6px;transition:width 0.5s;"></div>'
+        + '</div></div>'
+        + (ramSeries.length >= 2 ? '<div style="margin-top:6px;border-radius:6px;overflow:hidden;background:rgba(0,0,0,0.15);">' + _shSparkline(ramSeries, memColor, 260, 32) + '</div>' : '');
+      if (memory.pct >= 80) {
+        mhtml += '<div style="font-size:11px;color:' + memColor + ';margin-top:6px;">⚠ High memory usage — consider restarting heavy processes</div>';
+      }
+    } else {
+      mhtml = '<div style="padding:8px 10px;background:var(--bg-secondary);border:1px solid var(--border-secondary);border-radius:8px;font-size:12px;color:var(--text-muted);">Memory data unavailable</div>';
+    }
+    var shMem = document.getElementById('sh-memory');
+    if (shMem) shMem.innerHTML = mhtml;
+
+    // Network I/O
+    var netEl = document.getElementById('sh-network');
+    if (netEl) {
+      if (network && (network.rx_bps > 0 || network.tx_bps > 0)) {
+        netEl.innerHTML = '<div style="display:flex;gap:12px;flex-wrap:wrap;">'
+          + '<div style="flex:1;min-width:110px;padding:10px 14px;background:rgba(0,0,0,0.15);border-radius:8px;border:1px solid var(--border-secondary);">'
+          + '<div style="font-size:13px;font-weight:700;color:#38bdf8;">↓ ' + _fmtBytes(network.rx_bps) + '</div>'
+          + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Receive</div></div>'
+          + '<div style="flex:1;min-width:110px;padding:10px 14px;background:rgba(0,0,0,0.15);border-radius:8px;border:1px solid var(--border-secondary);">'
+          + '<div style="font-size:13px;font-weight:700;color:#a78bfa;">↑ ' + _fmtBytes(network.tx_bps) + '</div>'
+          + '<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-top:2px;">Transmit</div></div>'
+          + '</div>';
+      } else {
+        netEl.innerHTML = '<div style="padding:8px 10px;background:var(--bg-secondary);border:1px solid var(--border-secondary);border-radius:8px;font-size:12px;color:var(--text-muted);">Collecting network data…</div>';
+      }
+    }
 
     // Services
     var shtml = '';
     services.forEach(function(s) {
       var dot = s.up ? '🟢' : '🔴';
-      shtml += '<div style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:var(--bg-secondary);border-radius:8px;border:1px solid var(--border-secondary);font-size:13px;">'
+      shtml += '<div style="display:flex;align-items:center;gap:6px;padding:8px 14px;background:rgba(0,0,0,0.15);border-radius:8px;border:1px solid var(--border-secondary);font-size:13px;">'
         + dot + ' <span style="font-weight:600;color:var(--text-primary);">' + s.name + '</span>'
         + '<span style="color:var(--text-muted);font-size:11px;margin-left:auto;">:' + s.port + '</span></div>';
     });
@@ -5736,7 +5930,7 @@ async function loadSystemHealth() {
         + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">'
         + '<span style="font-weight:600;color:var(--text-primary);">' + dk.mount + '</span>'
         + '<span style="color:var(--text-muted);">' + dk.used_gb + ' / ' + dk.total_gb + ' GB (' + dk.pct + '%)</span></div>'
-        + '<div style="background:var(--bg-secondary);border-radius:6px;height:10px;overflow:hidden;border:1px solid var(--border-secondary);">'
+        + '<div style="background:rgba(0,0,0,0.2);border-radius:6px;height:10px;overflow:hidden;">'
         + '<div style="width:' + dk.pct + '%;height:100%;background:' + barColor + ';border-radius:6px;transition:width 0.5s;"></div>'
         + '</div></div>';
     });
@@ -5745,34 +5939,14 @@ async function loadSystemHealth() {
     }
     document.getElementById('sh-disks').innerHTML = dhtml;
 
-    // Memory
-    var mhtml = '';
-    if (memory && memory.pct > 0) {
-      var memColor = memory.pct > 90 ? '#dc2626' : (memory.pct > 80 ? '#d97706' : '#16a34a');
-      mhtml = '<div style="margin-bottom:10px;">'
-        + '<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;">'
-        + '<span style="font-weight:600;color:var(--text-primary);">RAM</span>'
-        + '<span style="color:var(--text-muted);">' + memory.used_gb + ' / ' + memory.total_gb + ' GB (' + memory.pct + '%)</span></div>'
-        + '<div style="background:var(--bg-secondary);border-radius:6px;height:10px;overflow:hidden;border:1px solid var(--border-secondary);">'
-        + '<div style="width:' + Math.min(100, memory.pct) + '%;height:100%;background:' + memColor + ';border-radius:6px;transition:width 0.5s;"></div>'
-        + '</div></div>';
-      if (memory.pct >= 80) {
-        mhtml += '<div style="font-size:11px;color:' + memColor + ';margin-top:4px;">⚠ High memory usage — consider restarting heavy processes</div>';
-      }
-    } else {
-      mhtml = '<div style="padding:8px 10px;background:var(--bg-secondary);border:1px solid var(--border-secondary);border-radius:8px;font-size:12px;color:var(--text-muted);">Memory data unavailable</div>';
-    }
-    var shMem = document.getElementById('sh-memory');
-    if (shMem) shMem.innerHTML = mhtml;
-
     // Crons
     var c = crons;
     var cFailed = Array.isArray(c.failed) ? c.failed : [];
     var chtml = '<div style="display:flex;gap:12px;flex-wrap:wrap;">'
-      + '<div style="flex:1;min-width:100px;padding:12px 16px;background:var(--bg-secondary);border-radius:8px;text-align:center;border:1px solid var(--border-secondary);">'
+      + '<div style="flex:1;min-width:100px;padding:12px 16px;background:rgba(0,0,0,0.15);border-radius:8px;text-align:center;border:1px solid var(--border-secondary);">'
       + '<div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + (c.enabled || 0) + '</div>'
       + '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Enabled</div></div>'
-      + '<div style="flex:1;min-width:100px;padding:12px 16px;background:var(--bg-secondary);border-radius:8px;text-align:center;border:1px solid var(--border-secondary);">'
+      + '<div style="flex:1;min-width:100px;padding:12px 16px;background:rgba(0,0,0,0.15);border-radius:8px;text-align:center;border:1px solid var(--border-secondary);">'
       + '<div style="font-size:24px;font-weight:700;color:var(--text-success);">' + (c.ok24h || 0) + '</div>'
       + '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">OK (24h)</div></div></div>';
     if (cFailed.length > 0) {
@@ -5786,10 +5960,10 @@ async function loadSystemHealth() {
     var sa = subagents;
     var pctColor = sa.successPct >= 100 ? 'var(--text-success)' : (sa.successPct > 80 ? 'var(--text-warning)' : 'var(--text-error)');
     var sahtml = '<div style="display:flex;gap:12px;flex-wrap:wrap;">'
-      + '<div style="flex:1;min-width:100px;padding:12px 16px;background:var(--bg-secondary);border-radius:8px;text-align:center;border:1px solid var(--border-secondary);">'
+      + '<div style="flex:1;min-width:100px;padding:12px 16px;background:rgba(0,0,0,0.15);border-radius:8px;text-align:center;border:1px solid var(--border-secondary);">'
       + '<div style="font-size:24px;font-weight:700;color:var(--text-primary);">' + sa.runs + '</div>'
       + '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Runs</div></div>'
-      + '<div style="flex:1;min-width:100px;padding:12px 16px;background:var(--bg-secondary);border-radius:8px;text-align:center;border:1px solid var(--border-secondary);">'
+      + '<div style="flex:1;min-width:100px;padding:12px 16px;background:rgba(0,0,0,0.15);border-radius:8px;text-align:center;border:1px solid var(--border-secondary);">'
       + '<div style="font-size:24px;font-weight:700;color:' + pctColor + ';">' + sa.successPct + '%</div>'
       + '<div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;">Success</div></div></div>';
     document.getElementById('sh-subagents').innerHTML = sahtml;
@@ -5797,17 +5971,16 @@ async function loadSystemHealth() {
   } catch(e) {
     console.error('System health load failed', e);
     var msg = '<div style="padding:8px 10px;background:var(--bg-secondary);border:1px solid var(--border-secondary);border-radius:8px;font-size:12px;color:var(--text-muted);">Unable to load right now</div>';
-    document.getElementById('sh-services').innerHTML = msg;
-    document.getElementById('sh-disks').innerHTML = msg;
-    document.getElementById('sh-crons').innerHTML = msg;
-    document.getElementById('sh-subagents').innerHTML = msg;
+    var ids = ['sh-cpu', 'sh-services', 'sh-disks', 'sh-crons', 'sh-subagents', 'sh-network'];
+    ids.forEach(function(id) { var el = document.getElementById(id); if (el) el.innerHTML = msg; });
     return false;
   }
 }
 function startSystemHealthRefresh() {
   loadSystemHealth();
   if (window._sysHealthTimer) clearInterval(window._sysHealthTimer);
-  window._sysHealthTimer = setInterval(loadSystemHealth, 30000);
+  // Refresh every 10s for live CPU/RAM sparklines
+  window._sysHealthTimer = setInterval(loadSystemHealth, 10000);
 }
 
 // ===== Activity Heatmap =====
@@ -10488,6 +10661,14 @@ def api_budget_config():
     return jsonify(_get_budget_config())
 
 
+@app.route('/api/system-health/sparklines')
+def api_system_health_sparklines():
+    """Return the last 60 CPU/RAM/temp samples for sparkline rendering."""
+    with _cpu_ram_lock:
+        history = list(_cpu_ram_history)
+    return jsonify({'sparklines': history})
+
+
 @app.route('/api/system-health/config', methods=['GET', 'POST'])
 def api_system_health_config():
     """Get or update system health alert thresholds."""
@@ -12810,8 +12991,10 @@ def api_system_health():
 
     sa_pct = round((sa_success / sa_runs * 100) if sa_runs > 0 else 100, 0)
 
-    # --- MEMORY ---
+    # --- MEMORY + CPU + NETWORK ---
     memory = {}
+    cpu = {}
+    network = {}
     try:
         import psutil
         mem = psutil.virtual_memory()
@@ -12821,8 +13004,55 @@ def api_system_health():
             'pct': round(mem.percent, 1),
             'available_gb': round(mem.available / (1024**3), 1),
         }
-    except Exception:
+        # CPU
+        cpu_pct = psutil.cpu_percent(interval=None)
+        per_core = psutil.cpu_percent(percpu=True, interval=None)
+        cpu = {
+            'pct': round(cpu_pct, 1),
+            'cores': len(per_core),
+            'per_core': [round(p, 1) for p in per_core],
+        }
+        # CPU temperature
+        try:
+            temps = psutil.sensors_temperatures()
+            if temps:
+                pkg = None
+                for key in ('coretemp', 'k10temp', 'acpitz', 'cpu_thermal'):
+                    if key in temps:
+                        for entry in temps[key]:
+                            if 'package' in entry.label.lower() or not entry.label:
+                                pkg = entry
+                                break
+                        if pkg:
+                            break
+                if not pkg:
+                    for entries in temps.values():
+                        if entries:
+                            pkg = entries[0]
+                            break
+                if pkg:
+                    cpu['temp'] = round(pkg.current, 1)
+                    if pkg.high:
+                        cpu['temp_high'] = round(pkg.high, 1)
+                    if pkg.critical:
+                        cpu['temp_crit'] = round(pkg.critical, 1)
+        except Exception:
+            pass
+        # Network I/O rates from ring buffer (last reading)
+        with _cpu_ram_lock:
+            hist = list(_cpu_ram_history)
+        if hist:
+            last = hist[-1]
+            network = {
+                'rx_bps': last.get('net_rx', 0),
+                'tx_bps': last.get('net_tx', 0),
+            }
+    except ImportError:
         pass
+
+    # Sparklines from ring buffer
+    with _cpu_ram_lock:
+        sparklines = list(_cpu_ram_history)
 
     health_data = {
         'services': services,
@@ -12830,6 +13060,9 @@ def api_system_health():
         'crons': {'enabled': cron_enabled, 'ok24h': cron_ok_24h, 'failed': cron_failed},
         'subagents': {'runs': sa_runs, 'successPct': sa_pct},
         'memory': memory,
+        'cpu': cpu,
+        'network': network,
+        'sparklines': sparklines,
     }
 
     # Run system health alert checks (non-blocking, fires alerts if thresholds exceeded)
@@ -13752,6 +13985,7 @@ def main():
     _budget_init_db()
     _start_fleet_maintenance_thread()
     _start_budget_monitor_thread()
+    _start_cpu_ram_poll_thread()
 
     # Print banner
     print(BANNER.format(version=__version__))

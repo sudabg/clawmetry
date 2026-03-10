@@ -2,6 +2,27 @@
 
 ## Latest Updates
 
+### March 10, 2026 — v0.9.21: CPU + RAM Sparklines in System Health Panel ✅ COMPLETE
+
+**📊 System Health Panel — Live CPU/RAM Sparklines + Network I/O**
+
+New live metrics in the Overview tab System Health panel:
+
+**Backend:**
+- `_cpu_ram_poll_loop()` — daemon thread samples CPU/RAM/temp/network every 10 s, stores last 60 readings in `_cpu_ram_history` deque (maxlen=60)
+- `/api/system-health` now includes `cpu` (pct, per_core[], temp, cores), `network` (rx_bps, tx_bps), and `sparklines` (ring buffer payload)
+- New `/api/system-health/sparklines` endpoint — lightweight sparkline-only payload
+- CPU temperature sourced from `coretemp` → `k10temp` → `acpitz` → fallback
+- Network I/O computed as bytes/s delta between samples
+
+**Frontend:**
+- CPU section: progress bar, per-core pills (colour-coded amber/indigo), temperature badge, SVG sparkline (last 60 readings)
+- RAM section: progress bar + SVG sparkline, high-usage warning
+- Network I/O section: real-time ↓ receive / ↑ transmit with auto-scaling (B/s → KB/s → MB/s)
+- `_shSparkline()` — pure SVG sparkline with gradient fill, no external chart deps
+- Refresh rate: 10 s (was 30 s)
+- Closes [#70](https://github.com/vivekchand/clawmetry/issues/70)
+
 ### March 8, 2026 — v0.9.18: Email Alert Delivery (Resend + Digest Mode) ✅ COMPLETE
 
 **📧 Email Alert Delivery via Resend API**
