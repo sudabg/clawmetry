@@ -51,7 +51,7 @@ except ImportError:
     metrics_service_pb2 = None
     trace_service_pb2 = None
 
-__version__ = "0.9.19"
+__version__ = "0.9.20"
 
 # ── Turso Cloud Sync (optional) ─────────────────────────────────────────
 try:
@@ -3123,6 +3123,7 @@ function clawmetryLogout(){
   </button>
   <div class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle theme"><svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></div>
   <div class="theme-toggle" id="logout-btn" onclick="clawmetryLogout()" title="Logout" style="display:none;cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
+  <div class="theme-toggle" onclick="document.getElementById('kb-help-overlay').style.display='flex'" title="Keyboard shortcuts (?)" style="cursor:pointer;font-size:13px;font-weight:700;color:var(--text-tertiary);user-select:none;">?</div>
   <div class="zoom-controls">
     <button class="zoom-btn" onclick="zoomOut()" title="Zoom out (Ctrl/Cmd + -)">−</button>
     <span class="zoom-level" id="zoom-level" title="Current zoom level. Ctrl/Cmd + 0 to reset">100%</span>
@@ -4324,11 +4325,16 @@ async function testTelegram() {
   }
 }
 
-function switchTab(name) {
+function _activateTab(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  event.target.classList.add('active');
+  var pageEl = document.getElementById('page-' + name);
+  if (pageEl) pageEl.classList.add('active');
+  // Highlight the matching nav-tab by its onclick attribute
+  document.querySelectorAll('.nav-tab').forEach(function(t) {
+    var oc = t.getAttribute('onclick') || '';
+    if (oc.indexOf("'" + name + "'") !== -1) t.classList.add('active');
+  });
   if (name === 'overview') loadAll();
   if (name === 'usage') loadUsage();
   if (name === 'crons') loadCrons();
@@ -4339,6 +4345,8 @@ function switchTab(name) {
   if (name === 'memory-history') { loadMainAgentPage(); if (!window._maPageTimer) window._maPageTimer = setInterval(loadMainAgentPage, 5000); }
   if (name === 'tasks-history') { if (window._maPageTimer) { clearInterval(window._maPageTimer); window._maPageTimer = null; } loadTasksHistory(1); }
 }
+function switchTab(name) { _activateTab(name); }
+function switchTabByName(name) { _activateTab(name); }
 
 function exportUsageData() {
   window.location.href = '/api/usage/export';
@@ -8878,7 +8886,135 @@ async function gwSetupConnect() {
 
 // Check on load
 document.addEventListener('DOMContentLoaded', checkGwConfig);
+
+// ── Keyboard Shortcuts ────────────────────────────────────────────────
+(function() {
+  // Tab index → switchTab name (in nav order)
+  var TAB_KEYS = {
+    '1': 'overview',
+    '2': 'flow',
+    '3': 'crons',
+    '4': 'usage',
+    '5': 'memory',
+    '6': 'memory-history',
+    '7': 'tasks-history',
+    '8': 'transcripts'
+  };
+
+  function _isTyping() {
+    var el = document.activeElement;
+    if (!el) return false;
+    var tag = el.tagName.toLowerCase();
+    return tag === 'input' || tag === 'textarea' || tag === 'select' || el.isContentEditable;
+  }
+
+  function _closeAllModals() {
+    // Close comp modal
+    var cm = document.getElementById('comp-modal-overlay');
+    if (cm && cm.classList.contains('open')) { closeCompModal(); return; }
+    // Close task modal
+    var tm = document.getElementById('task-modal-overlay');
+    if (tm && tm.classList.contains('open')) { closeTaskModal(); return; }
+    // Close budget modal
+    var bm = document.getElementById('budget-modal');
+    if (bm && bm.style.display === 'flex') { bm.style.display = 'none'; return; }
+    // Close cron edit modal
+    var cem = document.getElementById('cron-edit-modal');
+    if (cem && cem.style.display === 'flex') { closeCronEditModal(); return; }
+    // Close kb help overlay
+    var hm = document.getElementById('kb-help-overlay');
+    if (hm && hm.style.display === 'flex') { hm.style.display = 'none'; return; }
+    // Close snapshot modal
+    var sm = document.getElementById('snapshot-modal');
+    if (sm && sm.style.display === 'flex') { sm.style.display = 'none'; return; }
+  }
+
+  function _refreshCurrentTab() {
+    var activeTab = document.querySelector('.nav-tab.active');
+    if (!activeTab) return;
+    var oc = activeTab.getAttribute('onclick') || '';
+    var m = oc.match(/switchTab\('([^']+)'\)/);
+    if (!m) return;
+    var tab = m[1];
+    if (tab === 'overview') loadAll();
+    else if (tab === 'usage') loadUsage();
+    else if (tab === 'crons') loadCrons();
+    else if (tab === 'memory') loadMemory();
+    else if (tab === 'transcripts') loadTranscripts();
+    else if (tab === 'flow') initFlow();
+    else if (tab === 'memory-history') loadMainAgentPage();
+    else if (tab === 'tasks-history') loadTasksHistory(1);
+  }
+
+  function _toggleKbHelp() {
+    var hm = document.getElementById('kb-help-overlay');
+    if (!hm) return;
+    hm.style.display = hm.style.display === 'flex' ? 'none' : 'flex';
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (_isTyping()) return;
+    // Number keys: switch tabs
+    if (TAB_KEYS[e.key] && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      switchTabByName(TAB_KEYS[e.key]);
+      return;
+    }
+    // Escape: close modals
+    if (e.key === 'Escape') { _closeAllModals(); return; }
+    // r: refresh current tab
+    if (e.key === 'r' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      _refreshCurrentTab();
+      return;
+    }
+    // ?: toggle keyboard help
+    if (e.key === '?') {
+      e.preventDefault();
+      _toggleKbHelp();
+      return;
+    }
+    // /: focus search input on current tab
+    if (e.key === '/') {
+      e.preventDefault();
+      var search = document.querySelector('.page.active input[type="search"], .page.active input[placeholder*="earch" i], .page.active input[placeholder*="ilter" i]');
+      if (search) { search.focus(); search.select(); }
+      return;
+    }
+  });
+})();
 </script>
+
+<!-- Keyboard Shortcuts Help Overlay -->
+<div id="kb-help-overlay" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.72);align-items:center;justify-content:center;backdrop-filter:blur(3px);" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:16px;padding:28px 32px;min-width:360px;max-width:500px;box-shadow:0 24px 64px rgba(0,0,0,0.5);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <span style="font-size:15px;font-weight:700;color:var(--text-primary);">⌨️ Keyboard Shortcuts</span>
+      <span onclick="document.getElementById('kb-help-overlay').style.display='none'" style="cursor:pointer;font-size:22px;color:var(--text-muted);line-height:1;">&times;</span>
+    </div>
+    <div style="display:grid;grid-template-columns:auto 1fr;gap:10px 20px;align-items:start;font-size:13px;">
+      <div style="display:flex;gap:4px;">
+        <kbd style="display:inline-block;background:var(--bg-tertiary);border:1px solid var(--border-primary);border-radius:5px;padding:2px 7px;font-family:monospace;font-size:12px;color:var(--text-primary);">1</kbd>
+        <span style="color:var(--text-muted);">–</span>
+        <kbd style="display:inline-block;background:var(--bg-tertiary);border:1px solid var(--border-primary);border-radius:5px;padding:2px 7px;font-family:monospace;font-size:12px;color:var(--text-primary);">8</kbd>
+      </div>
+      <span style="color:var(--text-secondary);">Switch tabs: Overview · Flow · Crons · Tokens · Memory · Main Agent · Sub Agents · Transcripts</span>
+
+      <kbd style="display:inline-block;background:var(--bg-tertiary);border:1px solid var(--border-primary);border-radius:5px;padding:2px 7px;font-family:monospace;font-size:12px;color:var(--text-primary);">r</kbd>
+      <span style="color:var(--text-secondary);">Refresh current tab</span>
+
+      <kbd style="display:inline-block;background:var(--bg-tertiary);border:1px solid var(--border-primary);border-radius:5px;padding:2px 7px;font-family:monospace;font-size:12px;color:var(--text-primary);">/</kbd>
+      <span style="color:var(--text-secondary);">Focus search / filter input</span>
+
+      <kbd style="display:inline-block;background:var(--bg-tertiary);border:1px solid var(--border-primary);border-radius:5px;padding:2px 7px;font-family:monospace;font-size:12px;color:var(--text-primary);">Esc</kbd>
+      <span style="color:var(--text-secondary);">Close open modal or panel</span>
+
+      <kbd style="display:inline-block;background:var(--bg-tertiary);border:1px solid var(--border-primary);border-radius:5px;padding:2px 7px;font-family:monospace;font-size:12px;color:var(--text-primary);">?</kbd>
+      <span style="color:var(--text-secondary);">Toggle this help overlay</span>
+    </div>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border-secondary);font-size:11px;color:var(--text-muted);">Shortcuts are disabled when typing in inputs. Press Esc or click outside to close.</div>
+  </div>
+</div>
 
 </body>
 </html>

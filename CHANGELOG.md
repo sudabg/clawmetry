@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.9.20 — 2026-03-10
+
+**Keyboard Shortcuts for Power Users**
+
+- **⌨️ Tab switching via number keys**: Press `1`–`8` to jump to any tab (Overview, Flow, Crons, Tokens, Memory, Main Agent, Sub Agents, Transcripts) — no mouse needed
+- **`r` to refresh**: Triggers reload for the current tab (equivalent to clicking the refresh button)
+- **`/` to focus search**: Jumps focus to the nearest search or filter input on the current tab
+- **`Esc` to close modals**: Closes any open modal, panel, or overlay in priority order (comp modal → task modal → budget modal → cron edit → help overlay → snapshot modal)
+- **`?` help overlay**: Shows/hides a quick-reference keyboard shortcuts cheat sheet — also accessible via the `?` button in the header toolbar
+- Shortcuts are automatically disabled when the cursor is inside any input, textarea, or contenteditable element
+- Refactored `switchTab()` to use `_activateTab()` helper — no longer depends on `event.target`, enabling programmatic tab switching from keyboard handlers
+- Closes [#73](https://github.com/vivekchand/clawmetry/issues/73)
+
 ## v0.9.17 — 2026-03-03
 
 **Alert Channel Integrations + Agent Condition Checks**
