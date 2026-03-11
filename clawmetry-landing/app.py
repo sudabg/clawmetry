@@ -2578,7 +2578,7 @@ def docs_redirect():
 @app.route("/Clawmetry-<version>.dmg")
 def download_mac_app(version):
     import threading, datetime, json as _j, urllib.request as _ur
-    url = f"https://storage.googleapis.com/clawmetry-downloads/Clawmetry-{version}.dmg"
+    url = f"https://github.com/vivekchand/clawmetry-mac/releases/latest/download/ClawMetry-{version}.dmg"
     def _notify():
         try:
             ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
