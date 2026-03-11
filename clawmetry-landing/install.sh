@@ -95,7 +95,7 @@ if [ -t 0 ]; then
   echo -e "      ${DIM}Decrypted in the dashboard on demand. Nothing${NC}"
   echo -e "      ${DIM}reaches the cloud in plaintext. Ever.${NC}"
   echo ""
-  printf "      ${BOLD}[y]${NC} Connect to ClawMetry Cloud  ${DIM}(free 7-day trial)${NC}\n"
+  printf "      ${BOLD}[y]${NC} Connect to ClawMetry Cloud  ${DIM}(free 7-day trial · $5/node/month after)${NC}\n"
   printf "      ${BOLD}[n]${NC} I'll start the server locally for now\n"
   echo ""
   printf "  → [y/n]: "
