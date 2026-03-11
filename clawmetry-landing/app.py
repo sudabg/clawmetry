@@ -2545,6 +2545,24 @@ def install_sh():
         script = _f.read()
     return Response(script, mimetype="text/plain", headers={"Cache-Control": "no-cache, no-store"})
 
+@app.route("/install.cmd")
+def install_cmd():
+    from flask import Response
+    import os
+    _f = os.path.join(os.path.dirname(__file__), "install.cmd")
+    with open(_f, encoding="utf-8") as fh:
+        script = fh.read()
+    return Response(script, mimetype="text/plain", headers={"Cache-Control": "no-cache, no-store"})
+
+@app.route("/install.ps1")
+def install_ps1():
+    from flask import Response
+    import os
+    _f = os.path.join(os.path.dirname(__file__), "install.ps1")
+    with open(_f, encoding="utf-8") as fh:
+        script = fh.read()
+    return Response(script, mimetype="text/plain", headers={"Cache-Control": "no-cache, no-store"})
+
 @app.route("/cloud")
 def cloud():
     return send_from_directory(".", "cloud.html")

@@ -1,9 +1,10 @@
 @echo off
+chcp 65001 >nul 2>&1
 REM ClawMetry Installer for Windows (CMD)
 REM Usage: curl -fsSL https://clawmetry.com/install.cmd -o install.cmd && install.cmd && del install.cmd
 
 echo.
-echo   🦞 ClawMetry Installer
+echo   ClawMetry [claw] Installer
 echo   Real-time observability for OpenClaw agents
 echo.
 
@@ -12,8 +13,9 @@ where python >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     where python3 >nul 2>&1
     if %ERRORLEVEL% NEQ 0 (
-        echo   ✗ Python not found.
+        echo   [ERROR] Python not found.
         echo   Install Python from https://python.org/downloads
+        echo   Make sure to check "Add Python to PATH" during install.
         echo.
         exit /b 1
     )
@@ -25,19 +27,18 @@ if %ERRORLEVEL% NEQ 0 (
 REM Check Python version
 %PYTHON% -c "import sys; exit(0 if sys.version_info >= (3, 10) else 1)" 2>nul
 if %ERRORLEVEL% NEQ 0 (
-    echo   ✗ Python 3.10+ required.
+    echo   [ERROR] Python 3.10+ required.
     echo   Install from https://python.org/downloads
     exit /b 1
 )
 
-echo   → Installing clawmetry...
+echo   [..] Installing clawmetry...
 %PYTHON% -m pip install --upgrade clawmetry >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     %PYTHON% -m pip install --user --upgrade clawmetry >nul 2>&1
 )
+echo   [OK] ClawMetry installed
+echo.
 
-echo   ✓ Installed clawmetry
-echo.
-echo   Ready! Run 'clawmetry' to start the dashboard.
-echo   Then open http://localhost:8900 in your browser.
-echo.
+REM Run onboarding
+clawmetry onboard

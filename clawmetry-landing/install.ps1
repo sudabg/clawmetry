@@ -86,20 +86,8 @@ try {
 } catch {}
 
 Write-Host ""
-Write-Host "✅ Clawmetry installed successfully!" -ForegroundColor Green
+Write-Host "  ClawMetry $version installed" -ForegroundColor Green
 Write-Host ""
-Write-Host "  Version: $version"
-Write-Host ""
-Write-Host "  Start with:"
-Write-Host "    clawmetry --host 0.0.0.0 --port 8900" -ForegroundColor White
-Write-Host ""
-if ($workspace) {
-    Write-Host "  OpenClaw workspace detected: $workspace"
-    Write-Host ""
-}
-Write-Host "  Then open http://YOUR_IP:8900 in your browser"
-Write-Host ""
-Write-Host "  To run in background (PowerShell):"
-Write-Host "    Start-Process clawmetry -ArgumentList '--host 0.0.0.0 --port 8900' -WindowStyle Hidden" -ForegroundColor White
-Write-Host ""
-Write-Host "🔭 Happy observing!" -ForegroundColor Cyan
+
+# Run onboarding
+& "$binDir\clawmetry.exe" onboard
