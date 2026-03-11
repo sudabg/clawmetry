@@ -20434,6 +20434,17 @@ def _run_server(args):
     if _HAS_OTEL_PROTO:
         print(f"  -> OTLP endpoint: http://{local_ip}:{args.port}/v1/metrics")
     print()
+    # Cloud nudge — only if not already connected
+    import os as _os_nudge
+    _already_connected = bool(_os_nudge.environ.get('CLAWMETRY_API_KEY') or _os_nudge.environ.get('CLAWMETRY_NODE_ID'))
+    if not _already_connected:
+        print("  ─" * 25)
+        print()
+        print("  🌐  Access from anywhere:  clawmetry connect")
+        print("      🔒  E2E encrypted with your local key — decrypted in the dashboard on demand.")
+        print("      Free 7-day trial · no credit card required.")
+        print()
+
     if not args.debug:
         print(f"  Tip: run as background service with: clawmetry start")
         print()
