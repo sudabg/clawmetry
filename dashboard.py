@@ -61,7 +61,7 @@ except ImportError:
     metrics_service_pb2 = None
     trace_service_pb2 = None
 
-__version__ = "0.12.2"
+__version__ = "0.12.3"
 
 # Extensions (Phase 2) — load plugins at import time; safe no-op if package not installed
 try:
@@ -2504,7 +2504,7 @@ function clawmetryLogout(){
 </div>
 <div class="zoom-wrapper" id="zoom-wrapper">
 <div class="nav">
-  <h1><a href="https://clawmetry.com" style="display:flex;align-items:center;gap:7px;text-decoration:none;color:inherit"><img src="https://clawmetry.com/favicon.svg" width="22" height="22" style="border-radius:4px;vertical-align:middle;flex-shrink:0" alt="ClawMetry"><span>Claw<span style="color:#E5443A">metry</span></span></a></h1>
+  <h1><a href="https://clawmetry.com" style="display:flex;align-items:center;gap:7px;text-decoration:none;color:inherit"><img src="https://clawmetry.com/favicon.svg" width="22" height="22" style="border-radius:4px;vertical-align:middle;flex-shrink:0" alt="ClawMetry"><span>Claw<span style="color:#E5443A">Metry</span></span></a></h1>
   <div class="theme-toggle" onclick="var o=document.getElementById('gw-setup-overlay');o.dataset.mandatory='false';document.getElementById('gw-setup-close').style.display='';o.style.display='flex'" title="Gateway settings" style="cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
   <!-- Budget & Alerts hidden until mature -->
   <!-- <div class="theme-toggle" onclick="openBudgetModal()" title="Budget & Alerts" style="cursor:pointer;">&#128176;</div> -->
@@ -2683,7 +2683,7 @@ function clawmetryLogout(){
 
   <!-- Split Screen: Flow Left | Tasks Right -->
   <div class="overview-split">
-    <!-- LEFT: Flow + Brain stacked -->
+    <!-- LEFT: Flow + System Health stacked -->
     <div style="display:flex;flex-direction:column;">
       <div class="overview-flow-pane" style="border-radius:8px 0 0 0;flex:3;min-height:0;">
         <div class="grid-overlay"></div>
@@ -2694,27 +2694,24 @@ function clawmetryLogout(){
         </div>
       </div>
 
-      <!-- 🧠 Brain Panel: Main Agent Activity -->
-      <div id="main-activity-panel" style="background:linear-gradient(180deg, var(--bg-secondary) 0%, #12121a 100%);border:1px solid var(--border-primary);border-top:1px solid var(--border-secondary);padding:10px 14px 8px;min-height:80px;flex:1;display:flex;flex-direction:column;overflow:hidden;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span id="main-activity-dot" style="width:8px;height:8px;border-radius:50%;background:#888;display:inline-block;"></span>
-            <span style="font-size:13px;font-weight:700;color:var(--text-primary);">🧠 <span id="main-activity-model">Claude Opus</span></span>
-            <span id="main-activity-status" style="font-size:10px;color:var(--text-muted);">
-              <span id="main-activity-label">...</span>
-            </span>
-          </div>
-        </div>
-        <div id="main-activity-list" style="overflow-y:auto;flex:1;font-size:11px;font-family:'JetBrains Mono','Fira Code',monospace;line-height:1.6;">
-          <div style="text-align:center;padding:8px;color:var(--text-muted);font-size:11px;">Waiting for activity...</div>
-        </div>
+      <!-- System Health Panel (below flow SVG) -->
+      <div id="system-health-panel" style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-top:none;padding:16px;box-shadow:var(--card-shadow);">
+        <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:12px;">🏥 System Health</div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Services</div>
+        <div id="sh-services" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Disk Usage</div>
+        <div id="sh-disks" style="margin-bottom:14px;"></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Cron Jobs</div>
+        <div id="sh-crons" style="margin-bottom:14px;"></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Sub-Agents (24h)</div>
+        <div id="sh-subagents" style="margin-bottom:14px;"></div>
       </div>
     </div>
 
     <!-- DIVIDER -->
     <div class="overview-divider"></div>
 
-    <!-- RIGHT: Active Tasks Panel -->
+    <!-- RIGHT: Active Tasks + Brain stacked -->
     <div class="overview-tasks-pane">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:8px;">
@@ -2729,18 +2726,20 @@ function clawmetryLogout(){
           <div style="font-size:13px;">Loading tasks...</div>
         </div>
       </div>
-      <!-- System Health Panel (inside tasks pane) -->
-      <div id="system-health-panel" style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:12px;padding:16px;margin-top:14px;box-shadow:var(--card-shadow);">
-        <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:12px;">🏥 System Health</div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Services</div>
-        <div id="sh-services" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Disk Usage</div>
-        <div id="sh-disks" style="margin-bottom:14px;"></div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Cron Jobs</div>
-        <div id="sh-crons" style="margin-bottom:14px;"></div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Sub-Agents (24h)</div>
-        <div id="sh-subagents" style="margin-bottom:14px;"></div>
-        <!-- Token Usage removed, now has dedicated Tokens tab -->
+      <!-- 🧠 Brain Panel: Main Agent Activity (below Active Tasks) -->
+      <div id="main-activity-panel" style="background:linear-gradient(180deg, var(--bg-secondary) 0%, #12121a 100%);border:1px solid var(--border-primary);border-radius:12px;padding:10px 14px 8px;min-height:80px;margin-top:14px;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span id="main-activity-dot" style="width:8px;height:8px;border-radius:50%;background:#888;display:inline-block;"></span>
+            <span style="font-size:13px;font-weight:700;color:var(--text-primary);">🧠 <span id="main-activity-model">Claude Opus</span></span>
+            <span id="main-activity-status" style="font-size:10px;color:var(--text-muted);">
+              <span id="main-activity-label">...</span>
+            </span>
+          </div>
+        </div>
+        <div id="main-activity-list" style="overflow-y:auto;flex:1;font-size:11px;font-family:'JetBrains Mono','Fira Code',monospace;line-height:1.6;">
+          <div style="text-align:center;padding:8px;color:var(--text-muted);font-size:11px;">Waiting for activity...</div>
+        </div>
       </div>
     </div>
   </div>
@@ -6751,7 +6750,7 @@ function clawmetryLogout(){
 </div>
 <div class="zoom-wrapper" id="zoom-wrapper">
 <div class="nav">
-  <h1><a href="https://clawmetry.com" style="display:flex;align-items:center;gap:7px;text-decoration:none;color:inherit"><img src="https://clawmetry.com/favicon.svg" width="22" height="22" style="border-radius:4px;vertical-align:middle;flex-shrink:0" alt="ClawMetry"><span>Claw<span style="color:#E5443A">metry</span></span></a></h1>
+  <h1><a href="https://clawmetry.com" style="display:flex;align-items:center;gap:7px;text-decoration:none;color:inherit"><img src="https://clawmetry.com/favicon.svg" width="22" height="22" style="border-radius:4px;vertical-align:middle;flex-shrink:0" alt="ClawMetry"><span>Claw<span style="color:#E5443A">Metry</span></span></a></h1>
   <div class="theme-toggle" onclick="var o=document.getElementById('gw-setup-overlay');o.dataset.mandatory='false';document.getElementById('gw-setup-close').style.display='';o.style.display='flex'" title="Gateway settings" style="cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></div>
   <!-- Budget & Alerts hidden until mature -->
   <!-- <div class="theme-toggle" onclick="openBudgetModal()" title="Budget & Alerts" style="cursor:pointer;">&#128176;</div> -->
@@ -6930,7 +6929,7 @@ function clawmetryLogout(){
 
   <!-- Split Screen: Flow Left | Tasks Right -->
   <div class="overview-split">
-    <!-- LEFT: Flow + Brain stacked -->
+    <!-- LEFT: Flow + System Health stacked -->
     <div style="display:flex;flex-direction:column;">
       <div class="overview-flow-pane" style="border-radius:8px 0 0 0;flex:3;min-height:0;">
         <div class="grid-overlay"></div>
@@ -6941,27 +6940,24 @@ function clawmetryLogout(){
         </div>
       </div>
 
-      <!-- 🧠 Brain Panel: Main Agent Activity -->
-      <div id="main-activity-panel" style="background:linear-gradient(180deg, var(--bg-secondary) 0%, #12121a 100%);border:1px solid var(--border-primary);border-top:1px solid var(--border-secondary);padding:10px 14px 8px;min-height:80px;flex:1;display:flex;flex-direction:column;overflow:hidden;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-          <div style="display:flex;align-items:center;gap:6px;">
-            <span id="main-activity-dot" style="width:8px;height:8px;border-radius:50%;background:#888;display:inline-block;"></span>
-            <span style="font-size:13px;font-weight:700;color:var(--text-primary);">🧠 <span id="main-activity-model">Claude Opus</span></span>
-            <span id="main-activity-status" style="font-size:10px;color:var(--text-muted);">
-              <span id="main-activity-label">...</span>
-            </span>
-          </div>
-        </div>
-        <div id="main-activity-list" style="overflow-y:auto;flex:1;font-size:11px;font-family:'JetBrains Mono','Fira Code',monospace;line-height:1.6;">
-          <div style="text-align:center;padding:8px;color:var(--text-muted);font-size:11px;">Waiting for activity...</div>
-        </div>
+      <!-- System Health Panel (below flow SVG) -->
+      <div id="system-health-panel" style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-top:none;padding:16px;box-shadow:var(--card-shadow);">
+        <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:12px;">🏥 System Health</div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Services</div>
+        <div id="sh-services" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Disk Usage</div>
+        <div id="sh-disks" style="margin-bottom:14px;"></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Cron Jobs</div>
+        <div id="sh-crons" style="margin-bottom:14px;"></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Sub-Agents (24h)</div>
+        <div id="sh-subagents" style="margin-bottom:14px;"></div>
       </div>
     </div>
 
     <!-- DIVIDER -->
     <div class="overview-divider"></div>
 
-    <!-- RIGHT: Active Tasks Panel -->
+    <!-- RIGHT: Active Tasks + Brain stacked -->
     <div class="overview-tasks-pane">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div style="display:flex;align-items:center;gap:8px;">
@@ -6976,18 +6972,20 @@ function clawmetryLogout(){
           <div style="font-size:13px;">Loading tasks...</div>
         </div>
       </div>
-      <!-- System Health Panel (inside tasks pane) -->
-      <div id="system-health-panel" style="background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:12px;padding:16px;margin-top:14px;box-shadow:var(--card-shadow);">
-        <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:12px;">🏥 System Health</div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Services</div>
-        <div id="sh-services" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;"></div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Disk Usage</div>
-        <div id="sh-disks" style="margin-bottom:14px;"></div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Cron Jobs</div>
-        <div id="sh-crons" style="margin-bottom:14px;"></div>
-        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">Sub-Agents (24h)</div>
-        <div id="sh-subagents" style="margin-bottom:14px;"></div>
-        <!-- Token Usage removed, now has dedicated Tokens tab -->
+      <!-- 🧠 Brain Panel: Main Agent Activity (below Active Tasks) -->
+      <div id="main-activity-panel" style="background:linear-gradient(180deg, var(--bg-secondary) 0%, #12121a 100%);border:1px solid var(--border-primary);border-radius:12px;padding:10px 14px 8px;min-height:80px;margin-top:14px;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span id="main-activity-dot" style="width:8px;height:8px;border-radius:50%;background:#888;display:inline-block;"></span>
+            <span style="font-size:13px;font-weight:700;color:var(--text-primary);">🧠 <span id="main-activity-model">Claude Opus</span></span>
+            <span id="main-activity-status" style="font-size:10px;color:var(--text-muted);">
+              <span id="main-activity-label">...</span>
+            </span>
+          </div>
+        </div>
+        <div id="main-activity-list" style="overflow-y:auto;flex:1;font-size:11px;font-family:'JetBrains Mono','Fira Code',monospace;line-height:1.6;">
+          <div style="text-align:center;padding:8px;color:var(--text-muted);font-size:11px;">Waiting for activity...</div>
+        </div>
       </div>
     </div>
   </div>
