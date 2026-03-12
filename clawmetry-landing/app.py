@@ -2363,13 +2363,13 @@ def api_hero_stats():
                 result["downloads"] = daily.get("downloads", "56k")
                 result["downloads_exact"] = daily.get("downloads_exact", 56000)
             if "countries" not in result:
-                result["countries"] = daily.get("countries", "83")
+                result["countries"] = daily.get("countries", "100")
             log.info("[hero-stats] using daily cache for missing fields")
     if "downloads" not in result:
         result["downloads"] = "56k"
         result["downloads_exact"] = 56000
     if "countries" not in result:
-        result["countries"] = "83"
+        result["countries"] = "100"
     # GitHub stars
     try:
         r = requests.get("https://api.github.com/repos/vivekchand/clawmetry", timeout=5,
