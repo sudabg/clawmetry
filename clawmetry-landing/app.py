@@ -2313,19 +2313,26 @@ def api_hero_stats():
     if _hero_stats_cache["data"] and now - _hero_stats_cache["ts"] < 300:
         return jsonify(_hero_stats_cache["data"])
     result = {}
-    # Downloads + countries from Metabase (single source of truth)
+    # Downloads from pypistats.org (reliable, always up)
+    try:
+        r = requests.get("https://pypistats.org/api/packages/clawmetry/overall",
+                         timeout=10, headers={"User-Agent": "ClawMetry/1.0"})
+        r.raise_for_status()
+        total = sum(row["downloads"] for row in r.json().get("data", []))
+        result["downloads"] = f"{round(total / 1000)}k" if total >= 1000 else str(total)
+        result["downloads_exact"] = total
+    except Exception as e:
+        log.warning(f"[hero-stats] pypistats error: {e}")
+    # Countries from Metabase (best-effort)
     try:
         rows = _fetch_metabase_rows()
         if rows:
-            total = int(sum(int(r[1]) for r in rows if r[1]))
-            result["downloads"] = f"{round(total / 1000)}k" if total >= 1000 else str(total)
-            result["downloads_exact"] = total
             result["countries"] = str(len([r for r in rows if r[1] and int(r[1]) > 0]))
     except Exception as e:
-        log.warning(f"[hero-stats] metabase error: {e}")
+        log.warning(f"[hero-stats] metabase countries error: {e}")
     if "downloads" not in result:
-        result["downloads"] = "25k"
-        result["downloads_exact"] = 25000
+        result["downloads"] = "56k"
+        result["downloads_exact"] = 56000
     if "countries" not in result:
         result["countries"] = "83"
     # GitHub stars
