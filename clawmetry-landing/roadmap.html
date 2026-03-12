@@ -162,6 +162,9 @@
     .badge-inprogress { background: rgba(229,68,58,0.12); color: var(--accent); border: 1px solid rgba(229,68,58,0.25); }
     .badge-soon { background: rgba(249,115,22,0.1); color: var(--orange); border: 1px solid rgba(249,115,22,0.2); }
     .badge-planned { background: rgba(148,163,184,0.08); color: var(--text-dim); border: 1px solid rgba(148,163,184,0.1); }
+    .badge-live { background: rgba(34,197,94,0.12); color: #22c55e; border: 1px solid rgba(34,197,94,0.25); }
+    .live-btn { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; transition: transform 0.15s; }
+    .live-btn:hover { transform: translateY(-1px); }
 
     .rcard h3 { font-size: 18px; font-weight: 700; margin-bottom: 10px; line-height: 1.2; }
     .rcard p { font-size: 14px; color: var(--text-muted); line-height: 1.65; margin-bottom: 18px; }
@@ -270,18 +273,17 @@
   <div class="roadmap-inner">
     <div class="roadmap-grid">
 
-      <!-- Cloud Version - In Progress -->
-      <div class="rcard" class="inprogress">
+      <!-- Cloud Version - LIVE -->
+      <div class="rcard">
         <div class="rcard-header">
           <div class="rcard-icon">&#x2601;&#xFE0F;</div>
-          <span class="status-badge badge-inprogress">In progress</span>
+          <span class="status-badge badge-live">LIVE</span>
         </div>
         <h3>Cloud version</h3>
-        <p>See your agents from anywhere. Connect any OpenClaw instance with one command: <code style="font-family:monospace;color:var(--accent);font-size:12px">clawmetry connect</code>. E2E encrypted. E2E encrypted. Fleet dashboard for all your nodes.</p>
-        <button class="vote-btn" data-feature="cloud" onclick="castVote(this)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-          I want this
-        </button>
+        <p>See your agents from anywhere. Connect any OpenClaw instance with one command: <code style="font-family:monospace;color:var(--accent);font-size:12px">clawmetry connect</code>. E2E encrypted. Fleet dashboard for all your nodes.</p>
+        <a href="https://app.clawmetry.com" target="_blank" class="live-btn">
+          Open Cloud Dashboard &rarr;
+        </a>
       </div>
       <!-- Security Threat Detection - In Progress -->
       <div class="rcard inprogress">
@@ -340,18 +342,17 @@
         </button>
       </div>
 
-      <!-- Mac App - Coming Soon -->
-      <div class="rcard planned">
+      <!-- Mac App - LIVE -->
+      <div class="rcard">
         <div class="rcard-header">
           <div class="rcard-icon">&#x1F34E;</div>
-          <span class="status-badge badge-planned">Planned</span>
+          <span class="status-badge badge-live">LIVE</span>
         </div>
         <h3>Mac app</h3>
-        <p>ClawMetry in your menu bar. Native notifications, always visible, never in the way.</p>
-        <button class="vote-btn" data-feature="mac-app" onclick="castVote(this)">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-          I want this
-        </button>
+        <p>ClawMetry in your menu bar. Native Swift app. Monitor your agents without opening a browser. v1.0.1 available now.</p>
+        <a href="/mac" class="live-btn">
+          Download for macOS &rarr;
+        </a>
       </div>
 
       <!-- iOS & Android - Planned -->
