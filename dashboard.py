@@ -20639,7 +20639,6 @@ def _run_server(args):
             log.setLevel(logging.ERROR)
             # cli=False prevents Click from printing the "Serving Flask app" banner,
             # which crashes on Windows when stdout is redirected (closed fileno).
-            import os
             if os.name == 'nt':
                 os.environ['FLASK_RUN_FROM_CLI'] = 'false'
             app.run(host=args.host, port=args.port, debug=False, use_reloader=False, threaded=True)
