@@ -6,6 +6,7 @@ set -e
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
+# shellcheck disable=SC2034
 CYAN='\033[0;36m'
 BOLD='\033[1m'
 DIM='\033[2m'
@@ -84,7 +85,11 @@ echo ""
 
 # ── Onboarding ───────────────────────────────────────────────────────────────
 
-"$CLAWMETRY_BIN" onboard < /dev/tty
+if [ -e /dev/tty ]; then
+  "$CLAWMETRY_BIN" onboard < /dev/tty
+else
+  "$CLAWMETRY_BIN" onboard || true
+fi
 
 # ── PATH reminder if needed ──────────────────────────────────────────────────
 
