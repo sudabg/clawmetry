@@ -74,6 +74,11 @@ class HistoryDB:
                 status TEXT DEFAULT 'unknown',
                 duration_ms INTEGER DEFAULT 0,
                 error TEXT DEFAULT '',
+                tokens_in INTEGER DEFAULT 0,
+                tokens_out INTEGER DEFAULT 0,
+                cost_usd REAL DEFAULT 0,
+                model TEXT DEFAULT '',
+                session_id TEXT DEFAULT '',
                 extra_json TEXT DEFAULT '{}'
             );
             CREATE INDEX IF NOT EXISTS idx_cron_ts ON cron_runs(timestamp);
@@ -101,6 +106,25 @@ class HistoryDB:
             CREATE INDEX IF NOT EXISTS idx_rollup_ts ON metrics_rollup(metric_name, interval, timestamp);
         ''')
         conn.commit()
+        self._migrate_cron_runs_cost_columns(conn)
+
+    def _migrate_cron_runs_cost_columns(self, conn):
+        """Add cost-tracking columns to cron_runs if missing (backward compatible)."""
+        try:
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(cron_runs)").fetchall()}
+            migrations = [
+                ("tokens_in", "INTEGER DEFAULT 0"),
+                ("tokens_out", "INTEGER DEFAULT 0"),
+                ("cost_usd", "REAL DEFAULT 0"),
+                ("model", "TEXT DEFAULT ''"),
+                ("session_id", "TEXT DEFAULT ''"),
+            ]
+            for col_name, col_type in migrations:
+                if col_name not in cols:
+                    conn.execute(f"ALTER TABLE cron_runs ADD COLUMN {col_name} {col_type}")
+            conn.commit()
+        except Exception:
+            pass  # Best-effort migration
 
     def insert_metric(self, name, value, labels=None, ts=None):
         ts = ts or time.time()
@@ -129,12 +153,18 @@ class HistoryDB:
         )
         conn.commit()
 
-    def insert_cron_run(self, job_id, job_name, status, duration_ms=0, error='', ts=None, extra=None):
+    def insert_cron_run(self, job_id, job_name, status, duration_ms=0, error='',
+                        tokens_in=0, tokens_out=0, cost_usd=0.0, model='',
+                        session_id='', ts=None, extra=None):
         ts = ts or time.time()
         conn = self._get_conn()
         conn.execute(
-            'INSERT INTO cron_runs (timestamp, job_id, job_name, status, duration_ms, error, extra_json) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            (ts, job_id, job_name, status, duration_ms, error, json.dumps(extra or {}))
+            'INSERT INTO cron_runs (timestamp, job_id, job_name, status, duration_ms, error, '
+            'tokens_in, tokens_out, cost_usd, model, session_id, extra_json) '
+            'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            (ts, job_id, job_name, status, duration_ms, error,
+             tokens_in or 0, tokens_out or 0, cost_usd or 0.0, model or '',
+             session_id or '', json.dumps(extra or {}))
         )
         conn.commit()
 
@@ -207,6 +237,94 @@ class HistoryDB:
                 WHERE timestamp >= ? AND timestamp <= ?
                 ORDER BY timestamp
             ''', (from_ts, to_ts)).fetchall()
+        return [dict(r) for r in rows]
+
+    def query_cron_cost_leaderboard(self, days=7, limit=10):
+        """Top cost-driving cron jobs over the given period."""
+        conn = self._get_conn()
+        from_ts = time.time() - days * 86400
+        rows = conn.execute('''
+            SELECT job_id, job_name,
+                   SUM(cost_usd) as total_cost,
+                   SUM(tokens_in) as total_tokens_in,
+                   SUM(tokens_out) as total_tokens_out,
+                   COUNT(*) as run_count,
+                   AVG(cost_usd) as avg_cost_per_run,
+                   MAX(cost_usd) as max_cost_run
+            FROM cron_runs
+            WHERE timestamp >= ? AND cost_usd > 0
+            GROUP BY job_id
+            ORDER BY total_cost DESC
+            LIMIT ?
+        ''', (from_ts, limit)).fetchall()
+        return [dict(r) for r in rows]
+
+    def query_cron_anomalies(self, multiplier=2.0):
+        """Find cron runs where cost exceeded multiplier x rolling average.
+
+        Returns runs from the last 24h that cost more than `multiplier` times
+        the average of the previous 7 days for that job.
+        """
+        conn = self._get_conn()
+        now = time.time()
+        day_ago = now - 86400
+        week_ago = now - 7 * 86400
+
+        # Get 7-day averages per job (excluding last 24h)
+        avgs = conn.execute('''
+            SELECT job_id, AVG(cost_usd) as avg_cost, COUNT(*) as run_count
+            FROM cron_runs
+            WHERE timestamp >= ? AND timestamp < ? AND cost_usd > 0
+            GROUP BY job_id
+        ''', (week_ago, day_ago)).fetchall()
+        avg_map = {r['job_id']: {'avg': r['avg_cost'], 'count': r['run_count']} for r in avgs}
+
+        # Get last 24h runs
+        recent = conn.execute('''
+            SELECT * FROM cron_runs
+            WHERE timestamp >= ? AND cost_usd > 0
+            ORDER BY timestamp DESC
+        ''', (day_ago,)).fetchall()
+
+        anomalies = []
+        for r in recent:
+            rd = dict(r)
+            jid = rd['job_id']
+            if jid in avg_map and avg_map[jid]['count'] >= 3:
+                avg = avg_map[jid]['avg']
+                if avg > 0 and rd['cost_usd'] > avg * multiplier:
+                    rd['avg_cost'] = avg
+                    rd['spike_ratio'] = rd['cost_usd'] / avg
+                    anomalies.append(rd)
+        return anomalies
+
+    def query_cron_cost_history(self, job_id, days=30):
+        """Cost time series for a specific cron job."""
+        conn = self._get_conn()
+        from_ts = time.time() - days * 86400
+        rows = conn.execute('''
+            SELECT timestamp, cost_usd, tokens_in, tokens_out, model, duration_ms, status, session_id
+            FROM cron_runs
+            WHERE job_id = ? AND timestamp >= ?
+            ORDER BY timestamp
+        ''', (job_id, from_ts)).fetchall()
+        return [dict(r) for r in rows]
+
+    def query_cron_daily_totals(self, days=30):
+        """Daily aggregated cron costs for projection."""
+        conn = self._get_conn()
+        from_ts = time.time() - days * 86400
+        rows = conn.execute('''
+            SELECT CAST(timestamp / 86400 AS INTEGER) * 86400 as day_ts,
+                   SUM(cost_usd) as total_cost,
+                   SUM(tokens_in) as total_tokens_in,
+                   SUM(tokens_out) as total_tokens_out,
+                   COUNT(*) as run_count
+            FROM cron_runs
+            WHERE timestamp >= ?
+            GROUP BY day_ts
+            ORDER BY day_ts
+        ''', (from_ts,)).fetchall()
         return [dict(r) for r in rows]
 
     def query_snapshot(self, timestamp):
@@ -389,7 +507,20 @@ class HistoryCollector:
             self.db.insert_metric('crons_enabled', enabled, ts=ts)
             self.db.insert_metric('crons_total', len(jobs), ts=ts)
 
-            # Check for recent runs
+            # Build session cost lookup from current snapshot
+            session_cost_map = {}
+            if sessions_data and 'sessions' in sessions_data:
+                for s in sessions_data.get('sessions', []):
+                    skey = s.get('key', s.get('sessionId', ''))
+                    if skey:
+                        session_cost_map[skey] = {
+                            'tokens_in': s.get('inputTokens', s.get('tokensIn', 0)) or 0,
+                            'tokens_out': s.get('outputTokens', s.get('tokensOut', 0)) or 0,
+                            'cost': s.get('totalCost', s.get('cost', 0)) or 0,
+                            'model': s.get('model', ''),
+                        }
+
+            # Check for recent runs and correlate with session costs
             for job in jobs:
                 jid = job.get('id', '')
                 jname = job.get('name', job.get('label', ''))
@@ -409,7 +540,30 @@ class HistoryCollector:
                         status = last_run.get('status', 'unknown')
                         duration = last_run.get('durationMs', 0) or 0
                         error = last_run.get('error', '') or ''
-                        self.db.insert_cron_run(jid, jname, status, duration, error, ts=run_ts)
+
+                        # Extract cost data from the run or correlated session
+                        run_tokens_in = last_run.get('tokensIn', last_run.get('tokens_in', 0)) or 0
+                        run_tokens_out = last_run.get('tokensOut', last_run.get('tokens_out', 0)) or 0
+                        run_cost_usd = last_run.get('costUsd', last_run.get('cost_usd', 0)) or 0
+                        run_model = last_run.get('model', '') or ''
+                        run_session_id = last_run.get('sessionFile', last_run.get('sessionId', '')) or ''
+                        if run_session_id.endswith('.jsonl'):
+                            run_session_id = run_session_id[:-6]
+
+                        # Correlate with session data if cost not in run directly
+                        if not run_cost_usd and run_session_id and run_session_id in session_cost_map:
+                            sc = session_cost_map[run_session_id]
+                            run_tokens_in = sc['tokens_in']
+                            run_tokens_out = sc['tokens_out']
+                            run_cost_usd = sc['cost']
+                            run_model = run_model or sc['model']
+
+                        self.db.insert_cron_run(
+                            jid, jname, status, duration, error,
+                            tokens_in=run_tokens_in, tokens_out=run_tokens_out,
+                            cost_usd=run_cost_usd, model=run_model,
+                            session_id=run_session_id, ts=run_ts,
+                        )
                         seen.add(run_ts)
                         self._last_cron_runs[jid] = seen
 

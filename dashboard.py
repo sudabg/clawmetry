@@ -3591,7 +3591,24 @@ function clawmetryLogout(){
 <div class="page" id="page-crons">
   <div class="refresh-bar">
     <button class="refresh-btn" onclick="loadCrons()">&#x21bb; Refresh</button>
-    <!-- New Cron Job button disabled until gateway CRUD is properly tested -->
+  </div>
+  <div id="cron-cost-bar" class="card" style="display:none;margin-bottom:12px;padding:14px 18px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;">
+        <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">7-Day Total</span><div id="cron-cost-7d" style="font-size:20px;font-weight:700;color:var(--text-primary);">--</div></div>
+        <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">Daily Avg</span><div id="cron-cost-daily-avg" style="font-size:20px;font-weight:700;color:var(--text-primary);">--</div></div>
+        <div><span style="font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);">30-Day Projection</span><div id="cron-cost-projection" style="font-size:20px;font-weight:700;color:var(--text-accent);">--</div></div>
+      </div>
+      <div id="cron-anomaly-count" style="display:none;padding:4px 12px;background:var(--bg-warning);color:var(--text-warning);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;" onclick="document.getElementById('cron-anomalies-panel').scrollIntoView({behavior:'smooth'})">&#x26A0;&#xFE0F; <span id="cron-anomaly-num">0</span> anomalies</div>
+    </div>
+  </div>
+  <div id="cron-anomalies-panel" class="card" style="display:none;margin-bottom:12px;padding:14px 18px;border-left:3px solid #f59e0b;">
+    <div style="font-size:13px;font-weight:700;color:var(--text-warning);margin-bottom:8px;">&#x26A0;&#xFE0F; Cost Anomalies (Last 24h)</div>
+    <div id="cron-anomalies-list"></div>
+  </div>
+  <div id="cron-leaderboard-panel" class="card" style="display:none;margin-bottom:12px;padding:14px 18px;">
+    <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:8px;">&#x1F3C6; Top Cost Drivers (7 days)</div>
+    <div id="cron-leaderboard-list"></div>
   </div>
   <div class="card" id="crons-list">Loading...</div>
 </div>
@@ -5330,11 +5347,83 @@ async function loadSessions() {
 
 var _cronJobs = [];
 var _cronExpanded = {};
+var _cronCostData = {};
 
 async function loadCrons() {
   var data = await fetch('/api/crons').then(r => r.json());
   _cronJobs = data.jobs || [];
   renderCrons();
+  loadCronCostOverview();
+}
+
+async function loadCronCostOverview() {
+  try {
+    var results = await Promise.all([
+      fetch('/api/crons/daily-totals?days=7').then(function(r){return r.json();}),
+      fetch('/api/crons/cost-leaderboard?days=7&limit=5').then(function(r){return r.json();}),
+      fetch('/api/crons/anomalies').then(function(r){return r.json();})
+    ]);
+    var dailyRes = results[0], leaderRes = results[1], anomalyRes = results[2];
+
+    var bar = document.getElementById('cron-cost-bar');
+    var days = dailyRes.days || [];
+    var totalCost = days.reduce(function(s,d){return s+(d.total_cost||0);},0);
+    if (totalCost > 0 || (leaderRes.jobs && leaderRes.jobs.length > 0)) {
+      bar.style.display = 'block';
+      document.getElementById('cron-cost-7d').textContent = '$' + totalCost.toFixed(2);
+      var avgDaily = days.length > 0 ? totalCost / days.length : 0;
+      document.getElementById('cron-cost-daily-avg').textContent = '$' + avgDaily.toFixed(2);
+      if (dailyRes.projection) {
+        document.getElementById('cron-cost-projection').textContent = '$' + dailyRes.projection.monthly_estimate.toFixed(2) + '/mo';
+      }
+    }
+
+    var anomalies = anomalyRes.anomalies || [];
+    if (anomalies.length > 0) {
+      document.getElementById('cron-anomaly-count').style.display = 'inline-block';
+      document.getElementById('cron-anomaly-num').textContent = anomalies.length;
+      var aPanel = document.getElementById('cron-anomalies-panel');
+      aPanel.style.display = 'block';
+      var aHtml = '';
+      anomalies.forEach(function(a) {
+        aHtml += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border-secondary);">';
+        aHtml += '<div><span style="font-weight:600;">' + escHtml(a.job_name || a.job_id) + '</span>';
+        aHtml += '<span style="font-size:11px;color:var(--text-muted);margin-left:8px;">' + new Date(a.timestamp*1000).toLocaleString() + '</span></div>';
+        aHtml += '<div style="display:flex;gap:12px;align-items:center;">';
+        aHtml += '<span style="color:var(--text-warning);font-weight:600;">$' + (a.cost_usd||0).toFixed(4) + '</span>';
+        aHtml += '<span style="font-size:11px;color:var(--text-muted);">' + (a.spike_ratio||0).toFixed(1) + 'x avg ($' + (a.avg_cost||0).toFixed(4) + ')</span>';
+        aHtml += '</div></div>';
+      });
+      document.getElementById('cron-anomalies-list').innerHTML = aHtml;
+    } else {
+      document.getElementById('cron-anomaly-count').style.display = 'none';
+      document.getElementById('cron-anomalies-panel').style.display = 'none';
+    }
+
+    var leaders = leaderRes.jobs || [];
+    if (leaders.length > 0) {
+      var lPanel = document.getElementById('cron-leaderboard-panel');
+      lPanel.style.display = 'block';
+      var lHtml = '';
+      var maxCost = leaders[0].total_cost || 1;
+      leaders.forEach(function(l, i) {
+        var pct = Math.round((l.total_cost / maxCost) * 100);
+        lHtml += '<div style="margin-bottom:8px;">';
+        lHtml += '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">';
+        lHtml += '<span style="font-size:13px;font-weight:600;color:var(--text-primary);">' + (i+1) + '. ' + escHtml(l.job_name || l.job_id) + '</span>';
+        lHtml += '<span style="font-size:13px;font-weight:700;color:var(--text-accent);">$' + (l.total_cost||0).toFixed(2) + '</span>';
+        lHtml += '</div>';
+        lHtml += '<div style="background:var(--bg-secondary);border-radius:4px;height:6px;overflow:hidden;">';
+        lHtml += '<div style="background:var(--text-accent);height:100%;width:' + pct + '%;border-radius:4px;"></div>';
+        lHtml += '</div>';
+        lHtml += '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">' + l.run_count + ' runs &middot; avg $' + (l.avg_cost_per_run||0).toFixed(4) + '/run &middot; max $' + (l.max_cost_run||0).toFixed(4) + '</div>';
+        lHtml += '</div>';
+      });
+      document.getElementById('cron-leaderboard-list').innerHTML = lHtml;
+    }
+  } catch(e) {
+    console.log('Cost overview load error:', e);
+  }
 }
 
 function renderCrons() {
@@ -5368,7 +5457,21 @@ function renderCrons() {
     if (j.state && j.state.lastRunAtMs) html += 'Last: ' + timeAgo(j.state.lastRunAtMs);
     if (j.state && j.state.nextRunAtMs) html += ' &middot; Next: ' + formatTime(j.state.nextRunAtMs);
     if (j.state && j.state.lastDurationMs) html += ' &middot; Took: ' + (j.state.lastDurationMs/1000).toFixed(1) + 's';
+    if (j.lastRunTokens) html += ' &middot; ' + j.lastRunTokens.toLocaleString() + ' tok';
+    if (j.lastRunCostUsd) html += ' &middot; $' + j.lastRunCostUsd.toFixed(4);
     html += '</div>';
+    // Cost anomaly badge
+    if (j.lastRunCostUsd && j.runHistory && j.runHistory.length > 1) {
+      var costs = j.runHistory.map(function(r){return r.costUsd||0;}).filter(function(c){return c>0;});
+      if (costs.length >= 3) {
+        var avg = costs.reduce(function(a,b){return a+b;},0) / costs.length;
+        if (avg > 0 && j.lastRunCostUsd > avg*2) html += '<span title="Cost spike: '+Math.round(j.lastRunCostUsd/avg)+'x above average" style="margin-left:6px;cursor:help;">&#x26A0;&#xFE0F;</span>';
+      }
+    }
+    // Weekly cost summary
+    if (j.totalCostWeek) {
+      html += '<div style="font-size:10px;color:var(--text-muted);margin-top:2px;">7d: $' + j.totalCostWeek.toFixed(2) + ' &middot; avg $' + (j.avgCostPerRun||0).toFixed(4) + '/run</div>';
+    }
 
     // Action buttons
     html += '<div class="cron-actions" onclick="event.stopPropagation()">';
@@ -5418,12 +5521,35 @@ async function loadCronRuns(jobId) {
       el.innerHTML = '<div style="color:var(--text-muted);">No run history available</div>';
       return;
     }
-    var h = '<div style="font-weight:600;margin-bottom:8px;">Run History (last ' + runs.length + ')</div>';
+    // Cost sparkline SVG
+    var costVals = runs.map(function(r){return r.costUsd||0;}).filter(function(c){return c>0;});
+    var sparkline = '';
+    if (costVals.length >= 2) {
+      var svgW = 200, svgH = 40;
+      var maxC = Math.max.apply(null, costVals);
+      var minC = Math.min.apply(null, costVals);
+      var range = maxC - minC || 1;
+      var pts = costVals.map(function(v, i) {
+        var x = (i / (costVals.length - 1)) * svgW;
+        var y = svgH - ((v - minC) / range) * (svgH - 4) - 2;
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      }).join(' ');
+      sparkline = '<div style="margin-bottom:12px;"><div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">Cost per run</div>'
+        + '<svg width="'+svgW+'" height="'+svgH+'" style="background:var(--bg-secondary);border-radius:6px;padding:4px;">'
+        + '<polyline points="'+pts+'" fill="none" stroke="#60a5fa" stroke-width="1.5"/>'
+        + '</svg>'
+        + '<div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:2px;">'
+        + '<span>$'+minC.toFixed(4)+'</span><span>$'+maxC.toFixed(4)+'</span></div></div>';
+    }
+
+    var h = sparkline + '<div style="font-weight:600;margin-bottom:8px;">Run History (last ' + runs.length + ')</div>';
     runs.forEach(function(r) {
       var statusCls = r.status === 'ok' ? 'run-status-ok' : 'run-status-error';
       var dur = r.durationMs ? ' · ' + (r.durationMs/1000).toFixed(1) + 's' : '';
+      var cost = r.costUsd ? ' · $'+r.costUsd.toFixed(4) : '';
+      var tok = r.tokens ? ' · '+r.tokens.toLocaleString()+' tok' : '';
       h += '<div class="run-entry">';
-      h += '<span>' + new Date(r.startedAt || r.ts).toLocaleString() + dur + '</span>';
+      h += '<span>' + new Date(r.startedAt || r.ts).toLocaleString() + dur + tok + cost + '</span>';
       h += '<span class="' + statusCls + '">' + (r.status || 'unknown') + '</span>';
       h += '</div>';
       if (r.status === 'error' && r.error) {
@@ -9973,8 +10099,12 @@ def api_crons():
     # Try gateway API first
     gw_data = _gw_invoke('cron', {'action': 'list', 'includeDisabled': True})
     if gw_data and 'jobs' in gw_data:
-        return jsonify({'jobs': gw_data['jobs']})
-    return jsonify({'jobs': _get_crons()})
+        jobs = gw_data['jobs']
+    else:
+        jobs = _get_crons()
+    # Enrich jobs with cost data from history
+    jobs = _enrich_cron_jobs_with_cost(jobs)
+    return jsonify({'jobs': jobs})
 
 
 @app.route('/api/cron/fix', methods=['POST'])
@@ -10078,7 +10208,146 @@ def api_cron_runs(job_id):
     result = _gw_invoke('cron', {'action': 'runs', 'jobId': job_id, 'limit': 10})
     if result is None:
         return jsonify({'error': 'Gateway unavailable'}), 502
+    # Enrich runs with cost data from history if available
+    if _history_db and result and 'runs' in result:
+        result['runs'] = _enrich_cron_runs_with_cost(job_id, result['runs'])
     return jsonify(result)
+
+
+@app.route('/api/cron/<job_id>/cost-history')
+def api_cron_cost_history(job_id):
+    """Cost time series for a specific cron job."""
+    if not _history_db:
+        return jsonify({'data': [], 'error': 'History not available'})
+    days = request.args.get('days', type=int, default=30)
+    days = min(days, 90)
+    data = _history_db.query_cron_cost_history(job_id, days)
+    return jsonify({'data': data})
+
+
+@app.route('/api/crons/cost-leaderboard')
+def api_cron_cost_leaderboard():
+    """Top cost-driving cron jobs."""
+    if not _history_db:
+        return jsonify({'jobs': [], 'error': 'History not available'})
+    days = request.args.get('days', type=int, default=7)
+    limit = request.args.get('limit', type=int, default=10)
+    days = min(days, 90)
+    limit = min(limit, 50)
+    jobs = _history_db.query_cron_cost_leaderboard(days, limit)
+    return jsonify({'jobs': jobs, 'days': days})
+
+
+@app.route('/api/crons/anomalies')
+def api_cron_anomalies():
+    """Cron runs with anomalous costs (2x+ above rolling average)."""
+    if not _history_db:
+        return jsonify({'anomalies': [], 'error': 'History not available'})
+    multiplier = request.args.get('multiplier', type=float, default=2.0)
+    multiplier = max(1.5, min(multiplier, 10.0))
+    anomalies = _history_db.query_cron_anomalies(multiplier)
+    return jsonify({'anomalies': anomalies})
+
+
+@app.route('/api/crons/daily-totals')
+def api_cron_daily_totals():
+    """Daily aggregated cron costs with 30-day projection."""
+    if not _history_db:
+        return jsonify({'days': [], 'projection': None, 'error': 'History not available'})
+    num_days = request.args.get('days', type=int, default=30)
+    num_days = min(num_days, 90)
+    daily = _history_db.query_cron_daily_totals(num_days)
+
+    projection = None
+    if len(daily) >= 3:
+        recent = daily[-7:] if len(daily) >= 7 else daily
+        avg_daily = sum(d['total_cost'] for d in recent) / len(recent)
+        projection = {
+            'monthly_estimate': avg_daily * 30,
+            'daily_average': avg_daily,
+            'based_on_days': len(recent),
+        }
+
+    return jsonify({'days': daily, 'projection': projection})
+
+
+def _enrich_cron_jobs_with_cost(jobs):
+    """Enrich cron job list with last-run cost and run history cost data."""
+    if not _history_db or not jobs:
+        return jobs
+    try:
+        for job in jobs:
+            jid = job.get('id', '')
+            if not jid:
+                continue
+
+            history = _history_db.query_cron_cost_history(jid, 7)
+            if not history:
+                continue
+
+            last = history[-1] if history else None
+            if last and last.get('cost_usd', 0) > 0:
+                job['lastRunCostUsd'] = last['cost_usd']
+                job['lastRunTokens'] = (last.get('tokens_in', 0) or 0) + (last.get('tokens_out', 0) or 0)
+                job['lastRunModel'] = last.get('model', '')
+
+            cost_runs = [h for h in history if h.get('cost_usd', 0) > 0]
+            if cost_runs:
+                job['runHistory'] = [
+                    {'costUsd': h['cost_usd'], 'ts': h['timestamp']}
+                    for h in cost_runs[-20:]
+                ]
+                job['totalCostWeek'] = sum(h['cost_usd'] for h in cost_runs)
+                job['avgCostPerRun'] = job['totalCostWeek'] / len(cost_runs) if cost_runs else 0
+    except Exception:
+        pass
+    return jobs
+
+
+def _enrich_cron_runs_with_cost(job_id, runs):
+    """Enrich gateway cron runs with cost data from history DB."""
+    if not _history_db or not runs:
+        return runs
+    try:
+        history = _history_db.query_cron_cost_history(job_id, 30)
+        if not history:
+            return runs
+
+        cost_by_ts = {}
+        for h in history:
+            cost_by_ts[int(h['timestamp'])] = h
+
+        for run in runs:
+            started = run.get('startedAt', run.get('ts', ''))
+            if not started:
+                continue
+            try:
+                if isinstance(started, str):
+                    run_ts = int(datetime.fromisoformat(started.replace('Z', '+00:00')).timestamp())
+                else:
+                    run_ts = int(started / 1000 if started > 1e12 else started)
+            except (ValueError, TypeError):
+                continue
+
+            match = None
+            for offset in range(0, 121):
+                if run_ts + offset in cost_by_ts:
+                    match = cost_by_ts[run_ts + offset]
+                    break
+                if run_ts - offset in cost_by_ts:
+                    match = cost_by_ts[run_ts - offset]
+                    break
+
+            if match:
+                run['tokensIn'] = match.get('tokens_in', 0)
+                run['tokensOut'] = match.get('tokens_out', 0)
+                run['costUsd'] = match.get('cost_usd', 0)
+                run['tokens'] = (match.get('tokens_in', 0) or 0) + (match.get('tokens_out', 0) or 0)
+                if match.get('model'):
+                    run['model'] = match['model']
+    except Exception:
+        pass
+    return runs
 
 
 def _find_log_file(ds):
@@ -10728,6 +10997,70 @@ def api_budget_test_telegram():
         return jsonify({'ok': True})
     except Exception as e:
         return jsonify({'ok': False, 'error': str(e)}), 500
+
+
+# ── Proxy API Routes ────────────────────────────────────────────────────────
+
+def _get_proxy_status():
+    """Check if the ClawMetry proxy is running and get its status."""
+    try:
+        from clawmetry.proxy import ProxyConfig, proxy_status as _ps, PROXY_DB_FILE
+        status = _ps()
+        if not status.get('running'):
+            return {'running': False, 'configured': PROXY_DB_FILE.exists()}
+
+        config = ProxyConfig.load()
+        import urllib.request as _ur
+        url = f"http://{config.host}:{config.port}/proxy/status"
+        with _ur.urlopen(url, timeout=3) as r:
+            detail = json.loads(r.read())
+        detail['running'] = True
+        detail['configured'] = True
+        return detail
+    except Exception:
+        return {'running': False, 'configured': False}
+
+
+@app.route('/api/proxy/status')
+def api_proxy_status():
+    """Get proxy status for dashboard display."""
+    return jsonify(_get_proxy_status())
+
+
+@app.route('/api/proxy/events')
+def api_proxy_events():
+    """Get recent proxy enforcement events."""
+    try:
+        from clawmetry.proxy import ProxyDB
+        db = ProxyDB()
+        limit = request.args.get('limit', 50, type=int)
+        event_type = request.args.get('type', None)
+        events = db.get_recent_events(limit=limit, event_type=event_type)
+        return jsonify({'events': events})
+    except Exception as e:
+        return jsonify({'events': [], 'error': str(e)})
+
+
+@app.route('/api/proxy/usage')
+def api_proxy_usage():
+    """Get proxy usage summary."""
+    try:
+        from clawmetry.proxy import ProxyDB
+        from datetime import datetime as _dt_proxy, timezone as _tz_proxy
+        db = ProxyDB()
+        period = request.args.get('period', 'day')
+        if period == 'day':
+            since = _dt_proxy.now(_tz_proxy.utc).replace(
+                hour=0, minute=0, second=0, microsecond=0).timestamp()
+        elif period == 'month':
+            since = _dt_proxy.now(_tz_proxy.utc).replace(
+                day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
+        else:
+            since = 0
+        summary = db.get_usage_summary(since)
+        return jsonify(summary)
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
 
 @app.route('/api/alerts/rules', methods=['GET', 'POST'])
