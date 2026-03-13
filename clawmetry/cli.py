@@ -475,6 +475,44 @@ def _cmd_disconnect(args) -> None:
     print("Disconnected from ClawMetry Cloud.")
 
 
+def _detect_openclaw() -> bool:
+    """Check if OpenClaw is installed on this machine."""
+    import shutil
+    from pathlib import Path
+
+    # 1. Check if openclaw binary exists in PATH
+    if shutil.which("openclaw") or shutil.which("openclaw-gateway"):
+        return True
+
+    # 2. Check common session directory locations
+    home = Path.home()
+    candidates = [
+        home / ".openclaw" / "agents" / "main" / "sessions",
+        Path("/data/agents/main/sessions"),
+        Path("/app/agents/main/sessions"),
+        Path("/opt/openclaw/agents/main/sessions"),
+    ]
+    oc_home = os.environ.get("OPENCLAW_HOME", "")
+    if oc_home:
+        candidates.insert(0, Path(oc_home) / "agents" / "main" / "sessions")
+
+    if any(p.exists() for p in candidates):
+        return True
+
+    # 3. Check npm global list (best-effort)
+    if shutil.which("npm"):
+        import subprocess
+        try:
+            r = subprocess.run(["npm", "list", "-g", "openclaw", "--depth=0"],
+                               capture_output=True, text=True, timeout=5)
+            if "openclaw" in r.stdout and "empty" not in r.stdout:
+                return True
+        except Exception:
+            pass
+
+    return False
+
+
 def _cmd_status(args) -> None:
     """clawmetry status — show local + cloud sync status."""
     import platform
@@ -533,6 +571,24 @@ def _cmd_status(args) -> None:
         r = subprocess.run(["systemctl", "--user", "is-active", "clawmetry-sync"], capture_output=True, text=True)
         running = r.stdout.strip() == "active"
         print(f"  Daemon:      {'✅  Running (systemd)' if running else '○  Not running'}")
+
+    # OpenClaw detection — warn with install guide if not found (closes #128)
+    if not _detect_openclaw():
+        Y = '\033[0;33m'  # yellow
+        C = '\033[0;36m'  # cyan
+        N = '\033[0m'     # reset
+        print(f"\n  {Y}⚠️  OpenClaw not detected on this machine{N}")
+        print()
+        print("  ClawMetry needs OpenClaw to monitor. Install it:")
+        print()
+        print(f"    {C}npm install -g openclaw{N}          # via npm")
+        print()
+        print("  Then start OpenClaw:")
+        print(f"    {C}openclaw{N}                         # interactive setup")
+        print(f"    {C}openclaw gateway start{N}           # start the agent")
+        print()
+        print(f"  Docs: {C}https://openclaw.ai/docs{N}")
+        print(f"  Set {C}OPENCLAW_HOME{N} if installed in a custom location.")
 
     if LOG_FILE.exists():
         print(f"  Log:         {LOG_FILE}")

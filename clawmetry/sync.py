@@ -304,8 +304,13 @@ def detect_paths() -> dict:
     oc_home = os.environ.get("OPENCLAW_HOME", "")
     if oc_home:
         sessions_candidates.insert(0, Path(oc_home) / "agents" / "main" / "sessions")
-    sessions_dir = docker_paths.get("sessions_dir") or next((str(p) for p in sessions_candidates if p.exists()),
-                        str(sessions_candidates[0]))
+    found_sessions = docker_paths.get("sessions_dir") or next((str(p) for p in sessions_candidates if p.exists()), None)
+    sessions_dir = found_sessions or str(sessions_candidates[0])
+
+    if not found_sessions:
+        log.warning("OpenClaw not detected — no session directories found.")
+        log.warning("  Install: npm install -g openclaw  (https://openclaw.ai/docs)")
+        log.warning("  Daemon will keep retrying every 60s.")
 
     log_candidates = [Path("/tmp/openclaw"), home / ".openclaw" / "logs", Path("/data/logs")]
     log_dir = docker_paths.get("log_dir") or next((str(p) for p in log_candidates if p.exists()), "/tmp/openclaw")
