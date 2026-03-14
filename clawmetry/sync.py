@@ -608,14 +608,18 @@ def sync_crons(config: dict, state: dict, paths: dict) -> int:
     return 0
 
 
-def sync_session_metadata(config: dict) -> int:
+def sync_session_metadata(config: dict, state: dict = None) -> int:
     """Sync OpenClaw session metadata rows to cloud sessions table.
     
+    Uses mtime tracking to only re-parse files that changed since last sync.
     Reads JSONL session files directly (HTTP API returns HTML, not JSON).
     Extracts session_id, model, timestamps from the event stream.
     """
     api_key = config["api_key"]
     node_id = config["node_id"]
+    if state is None:
+        state = {}
+    last_mtimes: dict = state.setdefault("session_mtimes", {})
     try:
         home = Path.home()
         sessions_candidates = [
@@ -628,6 +632,13 @@ def sync_session_metadata(config: dict) -> int:
 
         session_rows = []
         for fpath in sorted(sessions_dir.glob("*.jsonl"))[-100:]:
+            # Skip files that haven't changed since last sync
+            try:
+                current_mtime = fpath.stat().st_mtime
+                if last_mtimes.get(fpath.name) == current_mtime:
+                    continue
+            except OSError:
+                continue
             try:
                 sid = fpath.stem  # UUID filename = session_id
                 model = ""
@@ -683,6 +694,7 @@ def sync_session_metadata(config: dict) -> int:
                     "started_at": started_at,
                     "updated_at": updated_at,
                 })
+                last_mtimes[fpath.name] = current_mtime
             except Exception as e:
                 log.debug(f"Session parse error ({fpath.name}): {e}")
 
@@ -1622,7 +1634,7 @@ def run_daemon() -> None:
         except Exception as e:
             log.warning(f"  Session sync error: {e}")
         try:
-            sm = sync_session_metadata(config)
+            sm = sync_session_metadata(config, state)
             log.info(f"  Session metadata: {sm} rows synced")
         except Exception as e:
             log.warning(f"  Session metadata error: {e}")
@@ -1645,7 +1657,9 @@ def run_daemon() -> None:
     start_log_streamer(config, paths)
 
     heartbeat_interval = 60
+    snapshot_interval = 60  # system snapshot every 60s, not every 15s
     last_heartbeat = time.time()
+    last_snapshot = 0  # force first snapshot immediately
     consecutive_hb_failures = 0
 
     while True:
@@ -1655,8 +1669,13 @@ def run_daemon() -> None:
             lg = sync_logs(config, state, paths)
             mem = sync_memory(config, state, paths)
             crons = sync_crons(config, state, paths)
-            sm = sync_session_metadata(config)
-            snap = sync_system_snapshot(config, state, paths)
+            sm = sync_session_metadata(config, state)
+            # System snapshot only every 60s (system info changes slowly)
+            snap = 0
+            now_snap = time.time()
+            if now_snap - last_snapshot > snapshot_interval:
+                snap = sync_system_snapshot(config, state, paths)
+                last_snapshot = now_snap
             state["last_sync"] = datetime.now(timezone.utc).isoformat()
             save_state(state)
             if ev or lg or mem or crons or sm:
