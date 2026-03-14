@@ -741,6 +741,54 @@ def _format_uptime(seconds):
     return f"{seconds / 86400:.1f}d"
 
 
+def _cmd_update() -> None:
+    """Self-update clawmetry to the latest PyPI version."""
+    import subprocess
+    try:
+        from dashboard import __version__ as current
+    except Exception:
+        current = "unknown"
+    print(f"Current version: {current}")
+    print("Checking for updates...")
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--upgrade", "clawmetry"],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode == 0:
+            # Check new version
+            try:
+                new_ver = subprocess.run(
+                    [sys.executable, "-c", "from dashboard import __version__; print(__version__)"],
+                    capture_output=True, text=True, timeout=10,
+                ).stdout.strip()
+            except Exception:
+                new_ver = "unknown"
+            if new_ver == current:
+                print(f"Already on latest version ({current})")
+            else:
+                print(f"Updated: {current} → {new_ver}")
+                # Restart daemon if running
+                try:
+                    from clawmetry.sync import CONFIG_FILE
+                    if CONFIG_FILE.exists():
+                        print("Restarting sync daemon...")
+                        subprocess.run(["clawmetry", "daemon", "restart"],
+                                       capture_output=True, timeout=15)
+                        print("Daemon restarted with new version")
+                except Exception:
+                    print("Tip: restart the daemon to use the new version")
+        else:
+            print(f"Update failed:\n{result.stderr}")
+            sys.exit(1)
+    except subprocess.TimeoutExpired:
+        print("Update timed out. Try manually: pip install --upgrade clawmetry")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Update error: {e}")
+        sys.exit(1)
+
+
 def main() -> None:
     import argparse
     from dashboard import main as dashboard_main
@@ -797,8 +845,11 @@ def main() -> None:
     p_proxy_config.add_argument("--action", choices=["block", "warn", "downgrade"], help="Budget action")
     p_proxy_config.add_argument("--loop-detection", choices=["on", "off"], help="Toggle loop detection")
 
+    # update — self-update to latest PyPI version
+    sub.add_parser("update", help="Update clawmetry to the latest version")
+
     # Parse just the first token to decide if it's a sub-command or dashboard flag
-    _subcmds = ("onboard", "connect", "disconnect", "status", "proxy")
+    _subcmds = ("onboard", "connect", "disconnect", "status", "proxy", "update")
     if len(sys.argv) > 1 and sys.argv[1] in _subcmds:
         args = parser.parse_args()
         if args.cmd == "onboard":
@@ -811,6 +862,8 @@ def main() -> None:
             _cmd_status(args)
         elif args.cmd == "proxy":
             _cmd_proxy(args)
+        elif args.cmd == "update":
+            _cmd_update()
     else:
         # Fall through to dashboard (handles --host, --port, --version, start, stop, etc.)
         dashboard_main()
