@@ -141,6 +141,80 @@ def _get_api_key_interactive() -> str:
     return getpass.getpass("  API key (cm_…): ").strip()
 
 
+def _verify_key_ownership(api_key: str) -> None:
+    """Require email OTP to prove key ownership (prevents misuse on shared machines)."""
+    import urllib.request, urllib.error, json as _json
+
+    _tty = None
+    if not sys.stdin.isatty():
+        try:
+            _tty = open('/dev/tty', 'r')
+        except OSError:
+            pass
+
+    def _input(prompt):
+        if _tty is not None:
+            sys.stdout.write(prompt)
+            sys.stdout.flush()
+            return _tty.readline().rstrip('\n')
+        return input(prompt)
+
+    INGEST_URL = os.environ.get("CLAWMETRY_INGEST_URL", "https://ingest.clawmetry.com")
+
+    def _api(path, body):
+        url = INGEST_URL.rstrip("/") + path
+        data = _json.dumps(body).encode()
+        req = urllib.request.Request(url, data=data,
+                                     headers={"Content-Type": "application/json"},
+                                     method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                return _json.loads(resp.read())
+        except urllib.error.HTTPError as e:
+            return {"error": e.read().decode()[:200]}
+        except Exception as e:
+            return {"error": str(e)}
+
+    print()
+    print("  🔐 Verify account ownership")
+    email = _input("  📧 Enter your email: ").strip()
+    if not email:
+        print("  ❌  Email required.")
+        sys.exit(1)
+
+    print(f"  📨 Sending code to {email}…", end="", flush=True)
+    r = _api("/api/auth/email-otp", {"action": "send", "email": email})
+    if r.get("error"):
+        print(f" ❌  {r['error']}")
+        sys.exit(1)
+    print(" ✅")
+    print()
+
+    for attempt in range(3):
+        otp = _input("  🔑 Enter the 6-digit code: ").strip()
+        if not otp:
+            continue
+        print("  Verifying…", end="", flush=True)
+        r2 = _api("/api/auth/email-otp", {"action": "verify", "email": email, "otp": otp})
+        if r2.get("error"):
+            print(f" ❌  {r2['error']}")
+            if attempt < 2:
+                print("  Try again.")
+            continue
+        # Verify the returned key matches the one being connected
+        verified_key = r2.get("api_key", "")
+        if verified_key == api_key:
+            print(" ✅  Verified!")
+            print()
+            return
+        else:
+            print(" ❌  This email doesn't match the API key.")
+            sys.exit(1)
+
+    print("  ❌  Verification failed.")
+    sys.exit(1)
+
+
 def _cmd_connect(args) -> None:
     """clawmetry connect — validate key, save config, start daemon."""
     # Read existing config BEFORE stopping daemon (preserve node_id + encryption_key)
@@ -167,6 +241,10 @@ def _cmd_connect(args) -> None:
     if not api_key.startswith("cm_"):
         print("❌  Key must start with cm_")
         sys.exit(1)
+
+    # Verify ownership via OTP when key is passed directly (not from interactive flow)
+    if args.key:
+        _verify_key_ownership(api_key)
 
     custom_name = getattr(args, 'custom_node_id', None) or ''
     machine_hostname = custom_name or socket.gethostname()
