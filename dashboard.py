@@ -8363,6 +8363,15 @@ function clawmetryLogout(){
       <div id="usage-plugin-legend" style="flex:1;min-width:220px;font-size:12px;color:var(--text-secondary);">Loading...</div>
     </div>
   </div>
+  <div class="section-title">💸 Top Sessions by Cost
+    <span style="float:right;font-size:12px;font-weight:400;color:var(--text-muted);">Alert threshold:
+      $<input id="session-cost-threshold" type="number" min="0" step="0.01" value="0.50" style="width:60px;padding:2px 6px;background:var(--bg-secondary);border:1px solid var(--border-secondary);border-radius:4px;color:var(--text-primary);font-size:12px;" onchange="renderSessionCostChart()">
+      per session</span>
+  </div>
+  <div class="card">
+    <canvas id="usage-session-cost-bar" height="180" style="width:100%;display:block;margin-bottom:12px;"></canvas>
+    <div id="usage-session-cost-table" style="font-size:12px;color:var(--text-secondary);">Loading...</div>
+  </div>
   <div id="otel-extra-sections" style="display:none;">
     <div class="grid" style="margin-top:16px;">
       <div class="card">
@@ -11056,11 +11065,21 @@ async function loadSessions() {
     // In cloud mode: /api/sessions and /api/subagents already handle CLOUD_MODE server-side
     // fetch interceptor appends node_id+token so these hit the cloud endpoints correctly
   }
-  var [sessData, saData, anomalyData] = await Promise.all([
+  var [sessData, saData, anomalyData, costData] = await Promise.all([
     fetch('/api/sessions').then(r => r.json()).catch(function() { return {sessions:[]}; }),
     fetch('/api/subagents').then(r => r.json()).catch(function() { return {subagents:[]}; }),
-    fetch('/api/usage/anomalies').then(r => r.json()).catch(function() { return {anomalies:[]}; })
+    fetch('/api/usage/anomalies').then(r => r.json()).catch(function() { return {anomalies:[]}; }),
+    fetch('/api/sessions/cost-breakdown').then(r => r.json()).catch(function() { return {sessions:[]}; })
   ]);
+  // Build cost lookup map by session_id suffix
+  var costMap = {};
+  (costData.sessions || []).forEach(function(c) {
+    if (c.session_id) {
+      costMap[c.session_id] = c;
+      // Also index by last 8 chars for gateway session key matching
+      costMap[c.session_id.slice(-16)] = c;
+    }
+  });
   var anomalySet = {};
   (anomalyData.anomalies || []).forEach(function(a) { if (a && a.session_id) anomalySet[a.session_id] = a; });
   var html = '';
@@ -11081,15 +11100,22 @@ async function loadSessions() {
     html += '</span>';
     html += '<button onclick="event.stopPropagation();stopSession(\'' + escHtml(sid).replace(/'/g, "\\\\'") + '\')" style="background:#b91c1c;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;">⏹ Emergency Stop</button>';
     html += '</div>';
+    var sessCost = costMap[sid] || costMap[(sid||'').slice(-16)] || null;
     html += '<div class="session-meta">';
     html += '<span><span class="badge model">' + (s.model||'default') + '</span></span>';
     if (s.channel !== 'unknown') html += '<span><span class="badge channel">' + s.channel + '</span></span>';
+    if (sessCost && sessCost.cost_usd > 0) {
+      html += '<span style="font-size:11px;color:var(--text-success);font-weight:600;">💰 $' + Number(sessCost.cost_usd||0).toFixed(4) + ' total</span>';
+    }
     html += '<span>Updated ' + timeAgo(s.updatedAt) + '</span>';
     html += '</div>';
     html += '<div style="margin-top:8px;padding:8px;background:var(--bg-secondary);border:1px solid var(--border-primary);border-radius:8px;">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">';
     html += '<span style="font-size:12px;color:var(--text-secondary);">Burn: <strong style="color:var(--text-primary);">' + Number(s.tokensPerMin || 0).toFixed(1) + ' tok/min</strong></span>';
     html += '<span style="font-size:12px;color:var(--text-secondary);">Projected (1h): <strong style="color:var(--text-primary);">$' + Number(s.projectedCostUsd || 0).toFixed(4) + '</strong></span>';
+    if (sessCost && sessCost.tokens > 0) {
+      html += '<span style="font-size:12px;color:var(--text-muted);">Total: <strong style="color:var(--text-secondary);">' + (sessCost.tokens >= 1000 ? (sessCost.tokens/1000).toFixed(0)+'K' : sessCost.tokens) + ' tok / $' + Number(sessCost.cost_usd||0).toFixed(4) + '</strong></span>';
+    }
     html += '</div>';
     html += '<canvas id="' + sparkId + '" width="220" height="28" style="margin-top:6px;width:100%;height:28px;"></canvas>';
     html += '</div>';
@@ -12120,8 +12146,104 @@ async function loadUsage() {
       otelExtra.style.display = 'none';
     }
     renderPluginPieChart(byPlugin.plugins || []);
+    // Load session cost breakdown
+    fetch('/api/sessions/cost-breakdown').then(r => r.json()).then(function(cbd) {
+      window._sessionCostData = cbd.top10 || [];
+      renderSessionCostChart();
+    }).catch(function() {
+      var el = document.getElementById('usage-session-cost-table');
+      if (el) el.innerHTML = '<span style="color:var(--text-muted)">No session cost data available</span>';
+    });
   } catch(e) {
     document.getElementById('usage-chart').innerHTML = '<span style="color:#555">No usage data available</span>';
+  }
+}
+
+function renderSessionCostChart() {
+  var rows = window._sessionCostData || [];
+  var canvas = document.getElementById('usage-session-cost-bar');
+  var tableEl = document.getElementById('usage-session-cost-table');
+  var threshold = parseFloat((document.getElementById('session-cost-threshold') || {}).value || '0.5') || 0;
+  if (!canvas) return;
+  var ctx = canvas.getContext('2d');
+  var dpr = window.devicePixelRatio || 1;
+  var W = canvas.parentElement ? canvas.parentElement.clientWidth || 600 : 600;
+  var H = 180;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  if (!rows || rows.length === 0) {
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.font = '13px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('No session cost data', W/2, H/2);
+    if (tableEl) tableEl.innerHTML = '<span style="color:var(--text-muted)">No sessions found</span>';
+    return;
+  }
+  var maxCost = Math.max.apply(null, rows.map(function(r) { return r.cost_usd || 0; })) || 0.001;
+  var pad = { top: 20, bottom: 40, left: 10, right: 10 };
+  var barW = Math.floor((W - pad.left - pad.right) / rows.length) - 4;
+  rows.forEach(function(r, i) {
+    var x = pad.left + i * ((W - pad.left - pad.right) / rows.length);
+    var barH = Math.max(2, ((r.cost_usd || 0) / maxCost) * (H - pad.top - pad.bottom));
+    var y = H - pad.bottom - barH;
+    var overThreshold = threshold > 0 && (r.cost_usd || 0) >= threshold;
+    ctx.fillStyle = overThreshold ? '#ef4444' : '#a855f7';
+    ctx.fillRect(x + 2, y, barW, barH);
+    // Cost label above bar
+    ctx.fillStyle = overThreshold ? '#fca5a5' : 'rgba(255,255,255,0.6)';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'center';
+    if ((r.cost_usd || 0) >= 0.0001) {
+      ctx.fillText('$' + (r.cost_usd || 0).toFixed(4), x + 2 + barW/2, y - 3);
+    }
+    // Session label below
+    ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.font = '9px monospace';
+    var label = (r.session_id || '').slice(-8);
+    ctx.fillText(label, x + 2 + barW/2, H - pad.bottom + 12);
+  });
+  // Threshold line
+  if (threshold > 0 && threshold <= maxCost) {
+    var ty = H - pad.bottom - (threshold / maxCost) * (H - pad.top - pad.bottom);
+    ctx.strokeStyle = '#f59e0b';
+    ctx.setLineDash([4, 3]);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.left, ty); ctx.lineTo(W - pad.right, ty); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#f59e0b';
+    ctx.font = '9px monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText('$' + threshold.toFixed(2) + ' threshold', pad.left + 4, ty - 3);
+  }
+  // Table
+  if (tableEl) {
+    var aboveThreshold = threshold > 0 ? rows.filter(function(r) { return (r.cost_usd||0) >= threshold; }) : [];
+    var tableHtml = '<table style="width:100%;border-collapse:collapse;">';
+    tableHtml += '<thead><tr style="color:var(--text-muted);font-size:11px;">';
+    tableHtml += '<th style="text-align:left;padding:4px 8px;">Session</th>';
+    tableHtml += '<th style="text-align:right;padding:4px 8px;">Tokens</th>';
+    tableHtml += '<th style="text-align:right;padding:4px 8px;">Cost</th>';
+    tableHtml += '<th style="text-align:left;padding:4px 8px;">Model</th>';
+    tableHtml += '<th style="text-align:left;padding:4px 8px;">Date</th>';
+    tableHtml += '</tr></thead><tbody>';
+    rows.forEach(function(r) {
+      var over = threshold > 0 && (r.cost_usd||0) >= threshold;
+      var rowStyle = over ? 'background:rgba(239,68,68,0.1);' : '';
+      tableHtml += '<tr style="border-top:1px solid var(--border-secondary);' + rowStyle + '">';
+      tableHtml += '<td style="padding:4px 8px;font-family:monospace;font-size:11px;color:var(--text-muted);">' + (r.session_id||'').slice(-16) + (over ? ' <span style="color:#ef4444;">⚠</span>' : '') + '</td>';
+      tableHtml += '<td style="text-align:right;padding:4px 8px;font-size:12px;">' + ((r.tokens||0) >= 1000 ? ((r.tokens||0)/1000).toFixed(0)+'K' : (r.tokens||0)) + '</td>';
+      tableHtml += '<td style="text-align:right;padding:4px 8px;font-size:12px;color:' + (over ? '#ef4444' : 'var(--text-success)') + ';font-weight:600;">$' + (r.cost_usd||0).toFixed(4) + '</td>';
+      tableHtml += '<td style="padding:4px 8px;font-size:11px;color:var(--text-muted);">' + escHtml(r.model||'') + '</td>';
+      tableHtml += '<td style="padding:4px 8px;font-size:11px;color:var(--text-muted);">' + escHtml(r.day||'') + '</td>';
+      tableHtml += '</tr>';
+    });
+    tableHtml += '</tbody></table>';
+    if (aboveThreshold.length > 0) {
+      tableHtml = '<div style="margin-bottom:8px;padding:6px 10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px;font-size:12px;color:#fca5a5;">⚠ ' + aboveThreshold.length + ' session' + (aboveThreshold.length > 1 ? 's' : '') + ' exceeded the $' + threshold.toFixed(2) + ' threshold</div>' + tableHtml;
+    }
+    tableEl.innerHTML = tableHtml;
   }
 }
 
@@ -16766,6 +16888,33 @@ def api_sessions():
     if gw_data and 'sessions' in gw_data:
         return jsonify({'sessions': _augment_sessions_with_burn(gw_data['sessions'])})
     return jsonify({'sessions': _augment_sessions_with_burn(_get_sessions())})
+
+
+@bp_sessions.route('/api/sessions/cost-breakdown')
+def api_sessions_cost_breakdown():
+    """Per-session cost breakdown: top sessions by total cost, sorted descending."""
+    analytics = _compute_transcript_analytics()
+    sessions = analytics.get('sessions', [])
+    usd_per_token = _estimate_usd_per_token()
+    result = []
+    for s in sessions:
+        cost = s.get('cost_usd', 0.0) or 0.0
+        tokens = s.get('tokens', 0) or 0
+        # Estimate cost from tokens if cost is zero
+        if cost == 0.0 and tokens > 0:
+            cost = tokens * usd_per_token
+        result.append({
+            'session_id': s.get('session_id', ''),
+            'tokens': tokens,
+            'cost_usd': round(cost, 6),
+            'model': s.get('model', 'unknown'),
+            'day': s.get('day', ''),
+            'start_ts': s.get('start_ts', 0),
+        })
+    result.sort(key=lambda x: x['cost_usd'], reverse=True)
+    top10 = result[:10]
+    total_cost = sum(r['cost_usd'] for r in result)
+    return jsonify({'sessions': result, 'top10': top10, 'total_cost_usd': round(total_cost, 4)})
 
 
 @bp_sessions.route('/api/sessions/<session_id>/stop', methods=['POST'])
