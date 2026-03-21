@@ -4976,7 +4976,7 @@ if sys.platform == 'win32':
 import glob
 import json
 import socket
-from collections import deque
+from collections import deque, defaultdict
 import argparse
 import subprocess
 import time
@@ -18188,6 +18188,283 @@ _usage_cache = {'data': None, 'ts': 0}
 _USAGE_CACHE_TTL = 60  # seconds
 _sessions_cache = {'data': None, 'ts': 0}
 _SESSIONS_CACHE_TTL = 10  # seconds
+_transcript_analytics_cache = {'data': None, 'ts': 0}
+_TRANSCRIPT_ANALYTICS_TTL = 60  # seconds
+
+
+def _get_sessions_dir():
+    base = SESSIONS_DIR or os.path.expanduser('~/.openclaw/agents/main/sessions')
+    if os.path.isdir(base):
+        return base
+    fallback = os.path.expanduser('~/.moltbot/agents/main/sessions')
+    return fallback if os.path.isdir(fallback) else base
+
+
+def _parse_event_timestamp(ts_val, fallback_ts=None):
+    if ts_val is None:
+        return fallback_ts
+    try:
+        if isinstance(ts_val, (int, float)):
+            return datetime.fromtimestamp(ts_val / 1000 if ts_val > 1e12 else ts_val)
+        if isinstance(ts_val, str):
+            return datetime.fromisoformat(ts_val.replace('Z', '+00:00'))
+    except Exception:
+        pass
+    return fallback_ts
+
+
+def _extract_usage_metrics(obj):
+    """Best-effort usage extraction from mixed transcript schemas."""
+    message = obj.get('message', {}) if isinstance(obj.get('message'), dict) else {}
+    usage = message.get('usage')
+    if not isinstance(usage, dict):
+        usage = obj.get('usage')
+    if not isinstance(usage, dict):
+        usage = obj.get('tokens_used')
+    if not isinstance(usage, dict):
+        return {'tokens': 0, 'cost': 0.0}
+
+    in_toks = usage.get('input', usage.get('input_tokens', 0)) or 0
+    out_toks = usage.get('output', usage.get('output_tokens', 0)) or 0
+    cache_read = usage.get('cacheRead', usage.get('cache_read_tokens', 0)) or 0
+    cache_write = usage.get('cacheWrite', usage.get('cache_write_tokens', 0)) or 0
+    total = usage.get('totalTokens', usage.get('total_tokens', 0)) or 0
+    if not total:
+        total = in_toks + out_toks + cache_read + cache_write
+
+    cost = 0.0
+    cost_data = usage.get('cost', {})
+    if isinstance(cost_data, dict):
+        raw = cost_data.get('total', cost_data.get('usd', 0))
+        try:
+            cost = float(raw or 0)
+        except Exception:
+            cost = 0.0
+    elif isinstance(cost_data, (int, float)):
+        cost = float(cost_data)
+
+    return {
+        'tokens': int(total or 0),
+        'cost': float(cost or 0.0),
+    }
+
+
+def _normalize_plugin_name(tool_name):
+    name = str(tool_name or '').strip().lower()
+    if not name:
+        return ''
+    for sep in ('/', ':', '.'):
+        if sep in name:
+            name = name.split(sep, 1)[0]
+            break
+    return name[:64]
+
+
+def _extract_tool_plugins(obj):
+    """Extract plugin/tool names from known tool call locations."""
+    plugins = []
+    message = obj.get('message', {}) if isinstance(obj.get('message'), dict) else {}
+
+    # Newer format: message.content[{type:'toolCall', name:'...'}]
+    for part in (message.get('content') or []):
+        if not isinstance(part, dict):
+            continue
+        if part.get('type') == 'toolCall':
+            p = _normalize_plugin_name(part.get('name', ''))
+            if p:
+                plugins.append(p)
+
+    # OpenAI-like tool call array
+    for tc in (obj.get('tool_calls') or []):
+        if not isinstance(tc, dict):
+            continue
+        p = _normalize_plugin_name(tc.get('name') or (tc.get('function') or {}).get('name', ''))
+        if p:
+            plugins.append(p)
+
+    # Alternate key
+    for tc in (obj.get('tool_use') or []):
+        if not isinstance(tc, dict):
+            continue
+        p = _normalize_plugin_name(tc.get('name', ''))
+        if p:
+            plugins.append(p)
+
+    return plugins
+
+
+def _collect_cron_refs(obj, out_refs):
+    """Recursively collect explicit cron/job IDs from transcript event objects."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            lk = str(k).lower()
+            if lk in ('cronid', 'cron_id', 'cronjobid', 'cron_job_id', 'jobid', 'job_id', 'scheduleid', 'schedule_id'):
+                if isinstance(v, (str, int, float)):
+                    sv = str(v).strip().lower()
+                    if sv:
+                        out_refs.add(sv)
+            _collect_cron_refs(v, out_refs)
+    elif isinstance(obj, list):
+        for it in obj:
+            _collect_cron_refs(it, out_refs)
+
+
+def _score_cron_match(session, job):
+    """Heuristic score for mapping a session to a cron job."""
+    refs = session.get('explicit_cron_refs', set())
+    text = session.get('search_text', '')
+    score = 0
+
+    jid = str(job.get('id', '')).strip().lower()
+    jname = str(job.get('name', job.get('label', ''))).strip().lower()
+
+    if jid and jid in refs:
+        score += 100
+    if jname and jname in refs:
+        score += 80
+    if jid and jid in text:
+        score += 30
+    if jname and len(jname) >= 4 and jname in text:
+        score += 20
+
+    payload = job.get('payload') or job.get('config') or {}
+    if isinstance(payload, dict):
+        prompt = str(payload.get('prompt') or payload.get('text') or payload.get('message') or '').strip().lower()
+        if prompt:
+            for w in [w for w in _re.split(r'[^a-z0-9_]+', prompt) if len(w) >= 5][:8]:
+                if w in text:
+                    score += 1
+    return score
+
+
+def _compute_transcript_analytics():
+    """Parse transcript files once for usage, anomalies, cron attribution, and plugin breakdown."""
+    now = time.time()
+    if _transcript_analytics_cache['data'] is not None and (now - _transcript_analytics_cache['ts']) < _TRANSCRIPT_ANALYTICS_TTL:
+        return _transcript_analytics_cache['data']
+
+    sessions_dir = _get_sessions_dir()
+    summaries = []
+    plugin_stats = defaultdict(lambda: {'tokens': 0.0, 'cost': 0.0, 'calls': 0})
+    daily_tokens = {}
+    daily_cost = {}
+    model_usage = {}
+
+    if os.path.isdir(sessions_dir):
+        for fname in os.listdir(sessions_dir):
+            if not fname.endswith('.jsonl'):
+                continue
+            sid = fname.replace('.jsonl', '')
+            fpath = os.path.join(sessions_dir, fname)
+            fallback_dt = datetime.fromtimestamp(os.path.getmtime(fpath))
+
+            s_tokens = 0
+            s_cost = 0.0
+            s_model = 'unknown'
+            s_start = None
+            s_end = None
+            search_parts = []
+            explicit_cron_refs = set()
+
+            try:
+                with open(fpath, 'r') as f:
+                    for line in f:
+                        try:
+                            obj = json.loads(line.strip())
+                        except Exception:
+                            continue
+
+                        ts = _parse_event_timestamp(
+                            obj.get('timestamp') or obj.get('time') or obj.get('created_at'),
+                            fallback_dt
+                        )
+                        if ts:
+                            if s_start is None or ts < s_start:
+                                s_start = ts
+                            if s_end is None or ts > s_end:
+                                s_end = ts
+
+                        # Collect cron hints from metadata and known custom session-info events
+                        _collect_cron_refs(obj, explicit_cron_refs)
+                        if obj.get('customType') == 'openclaw.session-info':
+                            search_parts.append(json.dumps(obj.get('data', {}), default=str).lower())
+
+                        message = obj.get('message', {}) if isinstance(obj.get('message'), dict) else {}
+                        model = message.get('model') or obj.get('model')
+                        if model:
+                            s_model = model
+
+                        usage_metrics = _extract_usage_metrics(obj)
+                        tokens = usage_metrics['tokens']
+                        cost = usage_metrics['cost']
+
+                        if tokens > 0:
+                            s_tokens += tokens
+                            if cost > 0:
+                                s_cost += cost
+
+                            plugins = _extract_tool_plugins(obj)
+                            if plugins:
+                                share_tokens = float(tokens) / float(len(plugins))
+                                share_cost = float(cost) / float(len(plugins)) if cost > 0 else 0.0
+                                for p in plugins:
+                                    plugin_stats[p]['tokens'] += share_tokens
+                                    plugin_stats[p]['cost'] += share_cost
+                                    plugin_stats[p]['calls'] += 1
+
+                        # Textual hints for cron matching
+                        if isinstance(message.get('content'), list):
+                            for part in message.get('content', []):
+                                if isinstance(part, dict):
+                                    txt = part.get('text')
+                                    if isinstance(txt, str) and txt:
+                                        search_parts.append(txt.lower())
+                        if obj.get('type') == 'custom':
+                            try:
+                                search_parts.append(json.dumps(obj, default=str).lower())
+                            except Exception:
+                                pass
+
+                if s_start is None:
+                    s_start = fallback_dt
+                if s_end is None:
+                    s_end = fallback_dt
+
+                day = s_start.strftime('%Y-%m-%d')
+                daily_tokens[day] = daily_tokens.get(day, 0) + s_tokens
+                daily_cost[day] = daily_cost.get(day, 0.0) + s_cost
+                model_usage[s_model] = model_usage.get(s_model, 0) + s_tokens
+
+                search_text = ' '.join(search_parts)
+                if len(search_text) > 12000:
+                    search_text = search_text[:12000]
+
+                summaries.append({
+                    'session_id': sid,
+                    'tokens': s_tokens,
+                    'cost_usd': s_cost,
+                    'model': s_model,
+                    'start_ts': s_start.timestamp() if s_start else 0,
+                    'end_ts': s_end.timestamp() if s_end else 0,
+                    'day': day,
+                    'search_text': search_text,
+                    'explicit_cron_refs': explicit_cron_refs,
+                    'is_cron_candidate': ('cron' in search_text) or bool(explicit_cron_refs),
+                })
+            except Exception:
+                continue
+
+    summaries.sort(key=lambda s: s.get('start_ts', 0))
+    result = {
+        'sessions': summaries,
+        'plugin_stats': plugin_stats,
+        'daily_tokens': daily_tokens,
+        'daily_cost': daily_cost,
+        'model_usage': model_usage,
+    }
+    _transcript_analytics_cache['data'] = result
+    _transcript_analytics_cache['ts'] = now
+    return result
 _transcript_analytics_cache = {'data': None, 'ts': 0}
 _TRANSCRIPT_ANALYTICS_TTL = 60  # seconds
 
