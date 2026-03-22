@@ -10282,7 +10282,7 @@ function _startBrainSSE() {
         // Re-render with current filters
         renderBrainStream(_brainAllEvents);
         renderBrainChart(_brainAllEvents);
-        syncBrainGraph(_brainAllEvents);
+        if (typeof syncBrainGraph === 'function') syncBrainGraph(_brainAllEvents);
         // Update source chips if new source
         var known = document.querySelector('[data-source="' + ev.source + '"]');
         if (!known && ev.source !== 'all') {
@@ -10355,7 +10355,7 @@ async function loadBrainPage(silent) {
     renderBrainFilterChips(data.sources || []);
     renderBrainTypeChips(events);
     renderBrainChart(events);
-    syncBrainGraph(events);
+    if (typeof syncBrainGraph === 'function') syncBrainGraph(events);
     var streamEl = document.getElementById('brain-stream');
     var wasAtTop = !streamEl || streamEl.scrollTop < 40;
     renderBrainStream(events);
