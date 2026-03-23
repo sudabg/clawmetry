@@ -443,3 +443,48 @@ class TestMemoryAnalytics:
             assert f["status"] in ("ok", "warning", "critical")
 
 
+
+
+class TestModelAttribution:
+    """Tests for /api/model-attribution endpoint (GH #305)."""
+
+    def test_model_attribution_returns_200(self, api, base_url):
+        """Model attribution endpoint returns 200."""
+        d = assert_ok(get(api, base_url, "/api/model-attribution"))
+        assert_keys(d, "primaryModel", "primaryModelPct", "fallbackRate",
+                    "modelCount", "costDeltaUsd", "breakdown",
+                    "timeline", "sessions", "alertThreshold")
+
+    def test_model_attribution_fallback_rate_is_float(self, api, base_url):
+        """fallbackRate is a float in [0, 100]."""
+        d = assert_ok(get(api, base_url, "/api/model-attribution"))
+        rate = d["fallbackRate"]
+        assert isinstance(rate, (int, float)), f"fallbackRate should be numeric, got {type(rate)}"
+        assert 0.0 <= rate <= 100.0, f"fallbackRate out of range: {rate}"
+
+    def test_model_attribution_breakdown_structure(self, api, base_url):
+        """breakdown list entries have required keys."""
+        d = assert_ok(get(api, base_url, "/api/model-attribution"))
+        for entry in d.get("breakdown", []):
+            assert_keys(entry, "model", "provider", "turns", "pct", "role")
+            assert entry["role"] in ("primary", "fallback"), f"Unexpected role: {entry['role']}"
+
+    def test_model_attribution_timeline_7_days(self, api, base_url):
+        """timeline contains entries for each of the last 7 days."""
+        d = assert_ok(get(api, base_url, "/api/model-attribution"))
+        tl = d.get("timeline", [])
+        assert len(tl) == 7, f"Expected 7 timeline entries, got {len(tl)}"
+        for entry in tl:
+            assert_keys(entry, "date", "models")
+
+    def test_model_attribution_sessions_structure(self, api, base_url):
+        """sessions list has correct fields when non-empty."""
+        d = assert_ok(get(api, base_url, "/api/model-attribution"))
+        for s in d.get("sessions", []):
+            assert_keys(s, "sessionId", "model", "provider", "updatedAt")
+
+    def test_model_attribution_alert_threshold(self, api, base_url):
+        """alertThreshold is a non-negative number."""
+        d = assert_ok(get(api, base_url, "/api/model-attribution"))
+        assert isinstance(d["alertThreshold"], (int, float))
+        assert d["alertThreshold"] >= 0

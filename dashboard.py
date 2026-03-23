@@ -2756,6 +2756,7 @@ function clawmetryLogout(){
     <div class="nav-tab active" onclick="switchTab('overview')">Overview</div>
     <div class="nav-tab" onclick="switchTab('crons')">Crons</div>
     <div class="nav-tab" onclick="switchTab('usage')">Tokens</div>
+    <div class="nav-tab" onclick="switchTab('models')">Models</div>
     <div class="nav-tab" onclick="switchTab('memory')">Memory</div>
     <div class="nav-tab" onclick="switchTab('security')">Security</div>
     <!-- History tab hidden until mature -->
@@ -3095,6 +3096,57 @@ function clawmetryLogout(){
     <div class="section-title">🤖 Model Breakdown</div>
     <div class="card"><table class="usage-table" id="usage-model-table"><tbody><tr><td colspan="2" style="color:#666;">No model data</td></tr></tbody></table></div>
     <div style="margin-top:12px;padding:8px 12px;background:#1a3a2a;border:1px solid #2a5a3a;border-radius:8px;font-size:12px;color:#60ff80;">📡 Data source: OpenTelemetry OTLP - real-time metrics from OpenClaw</div>
+  </div>
+</div>
+
+
+<!-- MODELS -->
+<div class="page" id="page-models">
+  <div class="refresh-bar">
+    <button class="refresh-btn" onclick="loadModelAttribution()">&#x21bb; Refresh</button>
+  </div>
+  <div class="grid" id="models-stats-row">
+    <div class="card">
+      <div class="card-title"><span class="icon">🤖</span> Primary Model</div>
+      <div class="card-value" id="models-primary">--</div>
+      <div class="card-sub" id="models-primary-pct"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">🔄</span> Fallback Rate</div>
+      <div class="card-value" id="models-fallback-rate">--</div>
+      <div class="card-sub" id="models-fallback-sub">% of turns used a non-primary model</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">📊</span> Models Used</div>
+      <div class="card-value" id="models-count">--</div>
+      <div class="card-sub">distinct models in last 30 days</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">💰</span> Fallback Cost Delta</div>
+      <div class="card-value" id="models-cost-delta">--</div>
+      <div class="card-sub" id="models-cost-delta-sub">vs primary-only baseline</div>
+    </div>
+  </div>
+  <div id="models-fallback-alert" style="display:none;padding:10px 16px;background:#3a1a1a;border:1px solid #e53e3e;border-radius:8px;font-size:13px;color:#fc8181;margin-bottom:12px;">
+    ⚠️ <strong>High fallback rate detected.</strong> <span id="models-fallback-alert-msg"></span>
+  </div>
+  <div class="section-title">🧩 Model Breakdown</div>
+  <div class="card">
+    <table class="usage-table" id="models-breakdown-table">
+      <thead><tr><th>Model</th><th>Provider</th><th>Turns</th><th>Share</th><th>Type</th></tr></thead>
+      <tbody><tr><td colspan="5" style="color:#666;">Loading...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="section-title">📅 Model Mix (7 days)</div>
+  <div class="card" id="models-timeline-card">
+    <div id="models-timeline" style="font-size:12px;color:#666;">Loading...</div>
+  </div>
+  <div class="section-title">📋 Recent Sessions by Model</div>
+  <div class="card">
+    <table class="usage-table" id="models-sessions-table">
+      <thead><tr><th>Session</th><th>Model</th><th>Provider</th><th>Last Active</th></tr></thead>
+      <tbody><tr><td colspan="4" style="color:#666;">Loading...</td></tr></tbody>
+    </table>
   </div>
 </div>
 
@@ -3916,6 +3968,7 @@ function switchTab(name) {
   if (name === 'flow') initFlow();
   if (name === 'history') loadHistory();
   if (name === 'brain') loadBrainPage();
+  if (name === 'models') loadModelAttribution();
   if (name === 'security') { loadSecurityPage(); loadSecurityPosture(); }
   if (name === 'logs') { if (!logStream || logStream.readyState === EventSource.CLOSED) startLogStream(); loadLogs(); }
 }
@@ -7872,6 +7925,7 @@ function clawmetryLogout(){
     <div class="nav-tab active" onclick="switchTab('overview')">Overview</div>
     <div class="nav-tab" onclick="switchTab('crons')">Crons</div>
     <div class="nav-tab" onclick="switchTab('usage')">Tokens</div>
+    <div class="nav-tab" onclick="switchTab('models')">Models</div>
     <div class="nav-tab" onclick="switchTab('memory')">Memory</div>
     <div class="nav-tab" onclick="switchTab('security')">Security</div>
     <!-- History tab hidden until mature -->
@@ -8255,6 +8309,57 @@ function clawmetryLogout(){
     <div class="section-title">🤖 Model Breakdown</div>
     <div class="card"><table class="usage-table" id="usage-model-table"><tbody><tr><td colspan="2" style="color:#666;">No model data</td></tr></tbody></table></div>
     <div style="margin-top:12px;padding:8px 12px;background:#1a3a2a;border:1px solid #2a5a3a;border-radius:8px;font-size:12px;color:#60ff80;">📡 Data source: OpenTelemetry OTLP - real-time metrics from OpenClaw</div>
+  </div>
+</div>
+
+
+<!-- MODELS (theme 2) -->
+<div class="page" id="page-models">
+  <div class="refresh-bar">
+    <button class="refresh-btn" onclick="loadModelAttribution()">&#x21bb; Refresh</button>
+  </div>
+  <div class="grid" id="models-stats-row">
+    <div class="card">
+      <div class="card-title"><span class="icon">🤖</span> Primary Model</div>
+      <div class="card-value" id="models-primary">--</div>
+      <div class="card-sub" id="models-primary-pct"></div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">🔄</span> Fallback Rate</div>
+      <div class="card-value" id="models-fallback-rate">--</div>
+      <div class="card-sub" id="models-fallback-sub">% of turns used a non-primary model</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">📊</span> Models Used</div>
+      <div class="card-value" id="models-count">--</div>
+      <div class="card-sub">distinct models in last 30 days</div>
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">💰</span> Fallback Cost Delta</div>
+      <div class="card-value" id="models-cost-delta">--</div>
+      <div class="card-sub" id="models-cost-delta-sub">vs primary-only baseline</div>
+    </div>
+  </div>
+  <div id="models-fallback-alert" style="display:none;padding:10px 16px;background:#3a1a1a;border:1px solid #e53e3e;border-radius:8px;font-size:13px;color:#fc8181;margin-bottom:12px;">
+    ⚠️ <strong>High fallback rate detected.</strong> <span id="models-fallback-alert-msg"></span>
+  </div>
+  <div class="section-title">🧩 Model Breakdown</div>
+  <div class="card">
+    <table class="usage-table" id="models-breakdown-table">
+      <thead><tr><th>Model</th><th>Provider</th><th>Turns</th><th>Share</th><th>Type</th></tr></thead>
+      <tbody><tr><td colspan="5" style="color:#666;">Loading...</td></tr></tbody>
+    </table>
+  </div>
+  <div class="section-title">📅 Model Mix (7 days)</div>
+  <div class="card" id="models-timeline-card">
+    <div id="models-timeline" style="font-size:12px;color:#666;">Loading...</div>
+  </div>
+  <div class="section-title">📋 Recent Sessions by Model</div>
+  <div class="card">
+    <table class="usage-table" id="models-sessions-table">
+      <thead><tr><th>Session</th><th>Model</th><th>Provider</th><th>Last Active</th></tr></thead>
+      <tbody><tr><td colspan="4" style="color:#666;">Loading...</td></tr></tbody>
+    </table>
   </div>
 </div>
 
@@ -10125,6 +10230,100 @@ async function loadSecCatalog() {
     el.innerHTML = html;
   } catch(e) {
     el.innerHTML = '<div style="color:var(--text-error);font-size:11px;">Failed to load: ' + escHtml(String(e)) + '</div>';
+  }
+}
+
+
+async function loadModelAttribution() {
+  try {
+    var r = await apiFetch('/api/model-attribution');
+    var d = await r.json();
+    if (!d || d.error) { return; }
+
+    // Stats row
+    var primary = d.primaryModel || 'unknown';
+    var primaryPct = d.primaryModelPct != null ? d.primaryModelPct.toFixed(1) + '%' : '--';
+    var fallbackRate = d.fallbackRate != null ? d.fallbackRate.toFixed(1) + '%' : '--';
+    var modelCount = d.modelCount || 0;
+    var costDelta = d.costDeltaUsd != null ? (d.costDeltaUsd >= 0 ? '+$' : '-$') + Math.abs(d.costDeltaUsd).toFixed(4) : '--';
+
+    var primEl = document.getElementById('models-primary');
+    if (primEl) primEl.textContent = primary.replace('anthropic/', '').replace('openai/', '').replace('google/', '');
+    var primPctEl = document.getElementById('models-primary-pct');
+    if (primPctEl) primPctEl.textContent = primaryPct + ' of turns';
+    var fallEl = document.getElementById('models-fallback-rate');
+    if (fallEl) fallEl.textContent = fallbackRate;
+    var cntEl = document.getElementById('models-count');
+    if (cntEl) cntEl.textContent = modelCount;
+    var cdEl = document.getElementById('models-cost-delta');
+    if (cdEl) cdEl.textContent = costDelta;
+    var cdSubEl = document.getElementById('models-cost-delta-sub');
+    if (cdSubEl) cdSubEl.textContent = d.costDeltaUsd >= 0 ? 'fallbacks cost more' : 'fallbacks saved money';
+
+    // Fallback alert
+    var alertEl = document.getElementById('models-fallback-alert');
+    var alertMsg = document.getElementById('models-fallback-alert-msg');
+    if (alertEl && d.fallbackRate != null && d.fallbackRate > (d.alertThreshold || 10)) {
+      alertEl.style.display = 'block';
+      if (alertMsg) alertMsg.textContent = d.fallbackRate.toFixed(1) + '% of turns used a non-primary model in the last 24h (threshold: ' + (d.alertThreshold || 10) + '%).';
+    } else if (alertEl) {
+      alertEl.style.display = 'none';
+    }
+
+    // Breakdown table
+    var tbl = document.getElementById('models-breakdown-table');
+    if (tbl && d.breakdown && d.breakdown.length > 0) {
+      var html = '<thead><tr><th>Model</th><th>Provider</th><th>Turns</th><th>Share</th><th>Type</th></tr></thead><tbody>';
+      d.breakdown.forEach(function(row, i) {
+        var badge = i === 0 ? '<span style="background:#2a5a3a;color:#60ff80;border-radius:4px;padding:2px 6px;font-size:10px;margin-left:4px;">primary</span>' : '<span style="background:#3a2a1a;color:#ffa040;border-radius:4px;padding:2px 6px;font-size:10px;margin-left:4px;">fallback</span>';
+        html += '<tr>';
+        html += '<td style="font-family:monospace;font-size:12px;">' + row.model + badge + '</td>';
+        html += '<td>' + (row.provider || 'unknown') + '</td>';
+        html += '<td>' + (row.turns || 0) + '</td>';
+        html += '<td>' + (row.pct != null ? row.pct.toFixed(1) + '%' : '--') + '</td>';
+        html += '<td>' + (row.role || '--') + '</td>';
+        html += '</tr>';
+      });
+      html += '</tbody>';
+      tbl.innerHTML = html;
+    }
+
+    // Timeline
+    var tlEl = document.getElementById('models-timeline');
+    if (tlEl && d.timeline && d.timeline.length > 0) {
+      var tlHtml = '<table class="usage-table"><thead><tr><th>Date</th>';
+      var models = d.timeline[0].models ? Object.keys(d.timeline[0].models) : [];
+      models.forEach(function(m) { tlHtml += '<th>' + m.replace('anthropic/', '').replace('openai/', '').replace('google/', '') + '</th>'; });
+      tlHtml += '</tr></thead><tbody>';
+      d.timeline.forEach(function(row) {
+        tlHtml += '<tr><td>' + row.date + '</td>';
+        models.forEach(function(m) { tlHtml += '<td>' + (row.models[m] || 0) + '</td>'; });
+        tlHtml += '</tr>';
+      });
+      tlHtml += '</tbody></table>';
+      tlEl.innerHTML = tlHtml;
+    } else if (tlEl) {
+      tlEl.innerHTML = '<span style="color:#666;">No timeline data available.</span>';
+    }
+
+    // Sessions table
+    var sTbl = document.getElementById('models-sessions-table');
+    if (sTbl && d.sessions && d.sessions.length > 0) {
+      var sHtml = '<thead><tr><th>Session</th><th>Model</th><th>Provider</th><th>Last Active</th></tr></thead><tbody>';
+      d.sessions.forEach(function(s) {
+        var ago = s.updatedAt ? Math.round((Date.now() - s.updatedAt) / 60000) + 'm ago' : '--';
+        sHtml += '<tr>';
+        sHtml += '<td style="font-family:monospace;font-size:11px;">' + (s.sessionId || '--').slice(0, 12) + '...</td>';
+        sHtml += '<td style="font-size:12px;">' + (s.model || 'unknown').replace('anthropic/', '').replace('openai/', '').replace('google/', '') + '</td>';
+        sHtml += '<td>' + (s.provider || 'unknown') + '</td>';
+        sHtml += '<td style="color:#888;font-size:11px;">' + ago + '</td>';
+        sHtml += '</tr>';
+      });
+      sHtml += '</tbody>';
+      sTbl.innerHTML = sHtml;
+    }
+  } catch(e) {
+    console.warn('loadModelAttribution error:', e);
   }
 }
 
@@ -16361,6 +16560,165 @@ def api_session_stop(session_id):
         'stop_file_written': did_file,
         'errors': errors,
     })
+
+
+
+@bp_sessions.route('/api/model-attribution')
+def api_model_attribution():
+    """Model attribution: per-session model tracking, fallback rate, timeline.
+
+    Scans the last 50 session JSONL files for model data. Returns:
+    - primaryModel, primaryModelPct, fallbackRate, modelCount, costDeltaUsd
+    - breakdown: [{model, provider, turns, pct, role}]
+    - timeline: [{date, models: {model: turns}}] for last 7 days
+    - sessions: [{sessionId, model, provider, updatedAt}]
+    """
+    import datetime
+    try:
+        sessions_dir = _get_sessions_dir()
+        if not sessions_dir or not os.path.isdir(sessions_dir):
+            return jsonify({'primaryModel': None, 'primaryModelPct': None,
+                            'fallbackRate': 0.0, 'modelCount': 0,
+                            'costDeltaUsd': 0.0, 'breakdown': [],
+                            'timeline': [], 'sessions': [], 'alertThreshold': 10})
+
+        # Gather session files sorted by mtime (newest first)
+        jsonl_files = sorted(
+            [f for f in os.listdir(sessions_dir)
+             if f.endswith('.jsonl') and 'deleted' not in f],
+            key=lambda f: os.path.getmtime(os.path.join(sessions_dir, f)),
+            reverse=True
+        )[:50]
+
+        model_turns = {}        # model -> total turns
+        day_model_turns = {}    # 'YYYY-MM-DD' -> {model -> turns}
+        session_list = []       # [{sessionId, model, provider, updatedAt}]
+        now_ts = time.time()
+        cutoff_30d = now_ts - 30 * 86400
+        cutoff_7d  = now_ts - 7 * 86400
+
+        for fname in jsonl_files:
+            fpath = os.path.join(sessions_dir, fname)
+            try:
+                mtime = os.path.getmtime(fpath)
+                if mtime < cutoff_30d:
+                    continue
+                session_model = None
+                session_ts = int(mtime * 1000)
+                with open(fpath, 'r', errors='replace') as f:
+                    for raw in f:
+                        raw = raw.strip()
+                        if not raw:
+                            continue
+                        try:
+                            obj = json.loads(raw)
+                        except Exception:
+                            continue
+                        if obj.get('type') != 'message':
+                            continue
+                        msg = obj.get('message', {})
+                        if not isinstance(msg, dict):
+                            continue
+                        model = msg.get('model')
+                        if not model:
+                            continue
+                        # Determine timestamp for timeline
+                        ts_val = obj.get('timestamp') or obj.get('ts')
+                        if ts_val:
+                            try:
+                                ts_sec = float(ts_val) / 1000.0 if float(ts_val) > 1e10 else float(ts_val)
+                            except Exception:
+                                ts_sec = mtime
+                        else:
+                            ts_sec = mtime
+
+                        if ts_sec < cutoff_30d:
+                            continue
+
+                        model_turns[model] = model_turns.get(model, 0) + 1
+                        session_model = model
+
+                        if ts_sec >= cutoff_7d:
+                            day_str = datetime.datetime.fromtimestamp(ts_sec).strftime('%Y-%m-%d')
+                            if day_str not in day_model_turns:
+                                day_model_turns[day_str] = {}
+                            day_model_turns[day_str][model] = day_model_turns[day_str].get(model, 0) + 1
+
+                if session_model:
+                    session_list.append({
+                        'sessionId': fname.replace('.jsonl', ''),
+                        'model': session_model,
+                        'provider': _provider_from_model(session_model),
+                        'updatedAt': session_ts,
+                    })
+            except Exception:
+                pass
+
+        total_turns = sum(model_turns.values()) or 1
+        sorted_models = sorted(model_turns.items(), key=lambda x: -x[1])
+
+        # Primary model = most-used
+        primary_model, primary_turns = sorted_models[0] if sorted_models else ('unknown', 0)
+        primary_pct = (primary_turns / total_turns) * 100
+        fallback_turns = total_turns - primary_turns
+        fallback_rate = (fallback_turns / total_turns) * 100
+
+        # Cost delta estimation: compare actual model mix cost vs all-primary cost
+        pricing = _get_model_pricing()
+        def _price_for(m):
+            ml = m.lower()
+            for key, (inp, out) in pricing.items():
+                if key in ml:
+                    return (inp + out) / 2  # rough per-MTok blended
+            return pricing['default'][0]
+
+        primary_price = _price_for(primary_model)
+        actual_cost = sum(_price_for(m) * t for m, t in model_turns.items()) / 1e6
+        baseline_cost = primary_price * total_turns / 1e6
+        cost_delta = actual_cost - baseline_cost
+
+        breakdown = []
+        for i, (model, turns) in enumerate(sorted_models):
+            breakdown.append({
+                'model': model,
+                'provider': _provider_from_model(model),
+                'turns': turns,
+                'pct': (turns / total_turns) * 100,
+                'role': 'primary' if i == 0 else 'fallback',
+            })
+
+        # Timeline: last 7 days
+        all_models_7d = set()
+        for dm in day_model_turns.values():
+            all_models_7d.update(dm.keys())
+        all_models_7d = sorted(all_models_7d)
+
+        timeline = []
+        today = datetime.date.today()
+        for delta_d in range(6, -1, -1):
+            d = today - datetime.timedelta(days=delta_d)
+            day_str = d.strftime('%Y-%m-%d')
+            entry = {'date': day_str, 'models': {}}
+            for m in all_models_7d:
+                entry['models'][m] = day_model_turns.get(day_str, {}).get(m, 0)
+            timeline.append(entry)
+
+        return jsonify({
+            'primaryModel': primary_model,
+            'primaryModelPct': primary_pct,
+            'fallbackRate': fallback_rate,
+            'modelCount': len(model_turns),
+            'costDeltaUsd': round(cost_delta, 6),
+            'breakdown': breakdown,
+            'timeline': timeline,
+            'sessions': session_list[:20],
+            'alertThreshold': 10,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e), 'primaryModel': None, 'fallbackRate': 0.0,
+                        'breakdown': [], 'timeline': [], 'sessions': [], 'modelCount': 0,
+                        'costDeltaUsd': 0.0, 'alertThreshold': 10})
+
 
 
 @bp_crons.route('/api/crons')
