@@ -3065,6 +3065,11 @@ setTimeout(checkVelocityAlerts, 5000);
         <div id="sh-inference" style="margin-bottom:14px;"></div></div>
         <div id="sh-security-wrap" style="display:none;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">🛡️ Security Posture</div>
         <div id="sh-security" style="margin-bottom:14px;"></div></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">📅 Activity Heatmap <span style="font-size:10px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--text-faint);">30 days · hourly</span></div>
+        <div class="heatmap-wrap">
+          <div id="heatmap-grid" class="heatmap-grid"><span style="color:var(--text-muted);font-size:12px;">Loading...</span></div>
+        </div>
+        <div id="heatmap-legend" class="heatmap-legend"></div>
       </div>
     </div>
 
@@ -8197,6 +8202,11 @@ function clawmetryLogout(){
         <div id="sh-inference" style="margin-bottom:14px;"></div></div>
         <div id="sh-security-wrap" style="display:none;"><div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">🛡️ Security Posture</div>
         <div id="sh-security" style="margin-bottom:14px;"></div></div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);font-weight:600;margin-bottom:6px;">📅 Activity Heatmap <span style="font-size:10px;text-transform:none;letter-spacing:0;font-weight:400;color:var(--text-faint);">30 days · hourly</span></div>
+        <div class="heatmap-wrap">
+          <div id="heatmap-grid" class="heatmap-grid"><span style="color:var(--text-muted);font-size:12px;">Loading...</span></div>
+        </div>
+        <div id="heatmap-legend" class="heatmap-legend"></div>
       </div>
     </div>
 
@@ -11392,36 +11402,60 @@ async function loadSystemHealth() {
 }
 function startSystemHealthRefresh() {
   loadSystemHealth();
+  loadHeatmap();
   if (window._sysHealthTimer) clearInterval(window._sysHealthTimer);
   window._sysHealthTimer = setInterval(loadSystemHealth, 30000);
+  // Refresh heatmap every 5 minutes (data changes slowly)
+  if (window._heatmapTimer) clearInterval(window._heatmapTimer);
+  window._heatmapTimer = setInterval(loadHeatmap, 300000);
 }
 
-// ===== Activity Heatmap =====
+// ===== Activity Heatmap (30-day hourly grid) =====
 async function loadHeatmap() {
+  var gridEl = document.getElementById('heatmap-grid');
+  var legendEl = document.getElementById('heatmap-legend');
+  if (!gridEl) return;
   try {
     var data = await fetch('/api/heatmap').then(r => r.json());
-    var grid = document.getElementById('heatmap-grid');
     var maxVal = Math.max(1, data.max);
+    // Hour labels row
     var html = '<div class="heatmap-label"></div>';
-    for (var h = 0; h < 24; h++) { html += '<div class="heatmap-hour-label">' + (h < 10 ? '0' : '') + h + '</div>'; }
+    for (var h = 0; h < 24; h++) {
+      html += '<div class="heatmap-hour-label">' + (h % 6 === 0 ? (h < 10 ? '0' + h : String(h)) : '') + '</div>';
+    }
     data.days.forEach(function(day) {
-      html += '<div class="heatmap-label">' + day.label + '</div>';
+      // Show label only every 5 days to avoid crowding on 30-day view
+      var showLabel = day.label.endsWith('01') || day.label.endsWith('05') ||
+                      day.label.endsWith('10') || day.label.endsWith('15') ||
+                      day.label.endsWith('20') || day.label.endsWith('25') ||
+                      day.label.endsWith('30');
+      html += '<div class="heatmap-label" style="font-size:9px;">' + (showLabel ? day.label : '') + '</div>';
       day.hours.forEach(function(val, hi) {
         var intensity = val / maxVal;
         var color;
         if (val === 0) color = '#12122a';
-        else if (intensity < 0.25) color = '#1a3a2a';
-        else if (intensity < 0.5) color = '#2a6a3a';
-        else if (intensity < 0.75) color = '#4a9a2a';
+        else if (intensity < 0.2) color = '#1a3a2a';
+        else if (intensity < 0.4) color = '#2a6a3a';
+        else if (intensity < 0.6) color = '#3a8a2a';
+        else if (intensity < 0.8) color = '#4a9a2a';
         else color = '#6adb3a';
-        html += '<div class="heatmap-cell" style="background:' + color + ';" title="' + day.label + ' ' + (hi < 10 ? '0' : '') + hi + ':00 - ' + val + ' events"></div>';
+        html += '<div class="heatmap-cell" style="background:' + color + ';" title="' +
+          day.label + ' ' + (hi < 10 ? '0' : '') + hi + ':00\u202f\u2014\u202f' + val + ' event' + (val !== 1 ? 's' : '') +
+          '"></div>';
       });
     });
-    grid.innerHTML = html;
-    var legend = document.getElementById('heatmap-legend');
-    legend.innerHTML = 'Less <div class="heatmap-legend-cell" style="background:#12122a"></div><div class="heatmap-legend-cell" style="background:#1a3a2a"></div><div class="heatmap-legend-cell" style="background:#2a6a3a"></div><div class="heatmap-legend-cell" style="background:#4a9a2a"></div><div class="heatmap-legend-cell" style="background:#6adb3a"></div> More';
+    gridEl.innerHTML = html;
+    if (legendEl) {
+      legendEl.innerHTML = 'Less\u00a0' +
+        '<div class="heatmap-legend-cell" style="background:#12122a"></div>' +
+        '<div class="heatmap-legend-cell" style="background:#1a3a2a"></div>' +
+        '<div class="heatmap-legend-cell" style="background:#2a6a3a"></div>' +
+        '<div class="heatmap-legend-cell" style="background:#4a9a2a"></div>' +
+        '<div class="heatmap-legend-cell" style="background:#6adb3a"></div>' +
+        '\u00a0More\u00a0\u00b7\u00a0' + data.days.length + ' days';
+    }
   } catch(e) {
-    document.getElementById('heatmap-grid').innerHTML = '<span style="color:#555">No activity data</span>';
+    gridEl.innerHTML = '<span style="color:#555">No activity data</span>';
   }
 }
 
