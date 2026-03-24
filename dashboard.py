@@ -19267,6 +19267,122 @@ def api_usage_export():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@bp_usage.route('/api/model-attribution')
+def api_model_attribution():
+    """Return per-model attribution across sessions: primary vs fallback, turn counts, cost delta.
+
+    Response keys:
+      primaryModel      str    – most-used model name ('' if no data)
+      primaryModelPct   float  – % of turns on primary model
+      fallbackRate      float  – % of turns NOT on primary model (0-100)
+      modelCount        int    – distinct model count
+      costDeltaUsd      float  – cost difference: fallback runs vs primary runs (positive = fallbacks cost more)
+      breakdown         list   – [{model, provider, turns, pct, role}]
+      timeline          list   – 7 entries [{date, models: {name: turns}}]
+      sessions          list   – [{sessionId, model, provider, updatedAt}]
+      alertThreshold    float  – fallbackRate threshold for alerting (default 10.0)
+    """
+    try:
+        analytics = _compute_transcript_analytics()
+        sessions = analytics.get('sessions', [])
+
+        # Build per-model turn counts and per-session model list
+        model_turns = {}        # model_name -> int
+        model_costs = {}        # model_name -> float
+        session_entries = []
+        timeline_days = {}      # 'YYYY-MM-DD' -> {model: turns}
+
+        now = time.time()
+        seven_days_ago = now - (7 * 86400)
+        today = datetime.now()
+
+        for s in sessions:
+            model = s.get('model') or 'unknown'
+            turns = 1  # treat each session as 1 turn unit; refine if per-turn data available
+            cost = float(s.get('cost_usd') or 0.0)
+            day = s.get('day') or datetime.fromtimestamp(s.get('start_ts', now)).strftime('%Y-%m-%d')
+
+            model_turns[model] = model_turns.get(model, 0) + turns
+            model_costs[model] = model_costs.get(model, 0.0) + cost
+
+            if s.get('start_ts', 0) >= seven_days_ago:
+                if day not in timeline_days:
+                    timeline_days[day] = {}
+                timeline_days[day][model] = timeline_days[day].get(model, 0) + turns
+
+            session_entries.append({
+                'sessionId': s.get('session_id', ''),
+                'model': model,
+                'provider': _provider_from_model(model),
+                'updatedAt': int((s.get('end_ts') or s.get('start_ts') or now) * 1000),
+            })
+
+        # Sort session_entries newest first
+        session_entries.sort(key=lambda x: x['updatedAt'], reverse=True)
+
+        total_turns = sum(model_turns.values()) or 1
+
+        # Determine primary model (most turns)
+        primary_model = max(model_turns, key=model_turns.get) if model_turns else ''
+        primary_turns = model_turns.get(primary_model, 0)
+        primary_model_pct = round(100.0 * primary_turns / total_turns, 2)
+        fallback_rate = round(100.0 - primary_model_pct, 2)
+
+        # Breakdown list
+        breakdown = []
+        for model, turns in sorted(model_turns.items(), key=lambda x: x[1], reverse=True):
+            pct = round(100.0 * turns / total_turns, 2)
+            role = 'primary' if model == primary_model else 'fallback'
+            breakdown.append({
+                'model': model,
+                'provider': _provider_from_model(model),
+                'turns': turns,
+                'pct': pct,
+                'role': role,
+            })
+
+        # Cost delta: average cost for fallback sessions vs primary sessions
+        primary_cost = model_costs.get(primary_model, 0.0)
+        primary_count = model_turns.get(primary_model, 1)
+        fallback_total_cost = sum(c for m, c in model_costs.items() if m != primary_model)
+        fallback_count = sum(t for m, t in model_turns.items() if m != primary_model) or 1
+        avg_primary_cost = primary_cost / primary_count if primary_count else 0.0
+        avg_fallback_cost = fallback_total_cost / fallback_count if fallback_count else 0.0
+        cost_delta = round(avg_fallback_cost - avg_primary_cost, 6)
+
+        # 7-day timeline
+        timeline = []
+        for i in range(6, -1, -1):
+            d = (today - timedelta(days=i)).strftime('%Y-%m-%d')
+            timeline.append({'date': d, 'models': timeline_days.get(d, {})})
+
+        return jsonify({
+            'primaryModel': primary_model,
+            'primaryModelPct': primary_model_pct,
+            'fallbackRate': fallback_rate,
+            'modelCount': len(model_turns),
+            'costDeltaUsd': cost_delta,
+            'breakdown': breakdown,
+            'timeline': timeline,
+            'sessions': session_entries[:50],  # cap at 50 for response size
+            'alertThreshold': 10.0,  # default: alert when >10% of turns are on fallback models
+        })
+    except Exception as e:
+        return jsonify({
+            'primaryModel': '',
+            'primaryModelPct': 0.0,
+            'fallbackRate': 0.0,
+            'modelCount': 0,
+            'costDeltaUsd': 0.0,
+            'breakdown': [],
+            'timeline': [{'date': (datetime.now() - timedelta(days=i)).strftime('%Y-%m-%d'), 'models': {}}
+                         for i in range(6, -1, -1)],
+            'sessions': [],
+            'alertThreshold': 10.0,
+            'error': str(e),
+        })
+
+
 @bp_sessions.route('/api/transcripts')
 def api_transcripts():
     """List available session transcript .jsonl files."""
