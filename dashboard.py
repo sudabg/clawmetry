@@ -3108,6 +3108,7 @@ function clawmetryLogout(){
     </label>
   </div>
   <div id="crons-multi-node" style="display:none;margin-bottom:12px;"></div>
+  <div id="cron-health-panel" style="display:none;margin-bottom:12px;"></div>
   <div class="card" id="crons-list">Loading...</div>
 </div>
 
@@ -8268,6 +8269,7 @@ function clawmetryLogout(){
     </label>
   </div>
   <div id="crons-multi-node" style="display:none;margin-bottom:12px;"></div>
+  <div id="cron-health-panel" style="display:none;margin-bottom:12px;"></div>
   <div class="card" id="crons-list">Loading...</div>
 </div>
 
@@ -10514,12 +10516,74 @@ function toggleCronAutoRefresh() {
   }
 }
 
+
+async function loadCronHealth() {
+  var panel = document.getElementById('cron-health-panel');
+  if (!panel) return;
+  try {
+    var d = await fetch('/api/cron/health').then(function(r){return r.json();});
+    var s = d.summary || {};
+    var jobs = d.jobs || [];
+    if (!jobs.length) { panel.style.display = 'none'; return; }
+    panel.style.display = 'block';
+    var html = '<div class="card" style="padding:14px;">';
+    html += '<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;">&#x2764; Cron Health</div>';
+    // Summary row
+    html += '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px;">';
+    var sumItems = [
+      {label:'Total', val:s.total||0, color:'var(--text-primary)'},
+      {label:'Healthy', val:s.healthy||0, color:'#22c55e'},
+      {label:'Dead', val:s.dead||0, color:s.dead>0?'#ef4444':'var(--text-muted)'},
+      {label:'Errored', val:s.errored||0, color:s.errored>0?'#f97316':'var(--text-muted)'},
+      {label:'Cost Spikes', val:s.costSpikes||0, color:s.costSpikes>0?'#eab308':'var(--text-muted)'},
+    ];
+    sumItems.forEach(function(si){
+      html += '<div style="background:var(--bg-secondary);border-radius:8px;padding:8px 12px;min-width:80px;text-align:center;">';
+      html += '<div style="font-size:20px;font-weight:700;color:'+si.color+';">'+si.val+'</div>';
+      html += '<div style="font-size:11px;color:var(--text-muted);">'+si.label+'</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+    // Per-job health rows (anomalies/dead only if any)
+    var flagged = jobs.filter(function(j){ return j.deadCron||j.costSpike||j.consecutiveFailures>1; });
+    if (flagged.length) {
+      html += '<div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">Flagged Jobs</div>';
+      flagged.forEach(function(j){
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:var(--bg-secondary);border-radius:6px;margin-bottom:4px;font-size:12px;">';
+        html += '<span style="font-weight:600;color:var(--text-primary);">'+escHtml(j.name||j.id)+'</span>';
+        var badges = '';
+        if (j.deadCron) badges += '<span style="margin-left:4px;background:#ef4444;color:#fff;padding:1px 6px;border-radius:10px;font-size:11px;">dead</span>';
+        if (j.consecutiveFailures > 1) badges += '<span style="margin-left:4px;background:#f97316;color:#fff;padding:1px 6px;border-radius:10px;font-size:11px;">'+j.consecutiveFailures+' fails</span>';
+        if (j.costSpike) badges += '<span style="margin-left:4px;background:#eab308;color:#000;padding:1px 6px;border-radius:10px;font-size:11px;">cost spike</span>';
+        if (j.monthlyProjection) badges += '<span style="margin-left:4px;color:var(--text-muted);">~$'+j.monthlyProjection.toFixed(2)+'/mo</span>';
+        html += badges;
+        html += '</div>';
+      });
+    }
+    // Monthly projection totals
+    var totalMonthly = jobs.reduce(function(acc,j){ return acc+(j.monthlyProjection||0); }, 0);
+    if (totalMonthly > 0) {
+      html += '<div style="margin-top:10px;padding:8px 12px;background:var(--bg-secondary);border-radius:8px;font-size:12px;display:flex;justify-content:space-between;">';
+      html += '<span style="color:var(--text-secondary);">Est. monthly spend (all crons)</span>';
+      html += '<span style="font-weight:700;color:var(--text-primary);">$'+totalMonthly.toFixed(4)+'</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+    panel.innerHTML = html;
+  } catch(e) {
+    var panel = document.getElementById('cron-health-panel');
+    if (panel) panel.style.display = 'none';
+  }
+}
+
 async function loadCrons() {
   var data = await fetch('/api/crons').then(r => r.json());
   _cronJobs = data.jobs || [];
   renderCrons();
   // Load multi-node cron status from fleet nodes
   loadCronsMultiNode();
+  // Load cron health panel
+  loadCronHealth();
   // Start auto-refresh if checkbox is checked and timer not running
   var cb = document.getElementById('cron-auto-refresh');
   if (cb && cb.checked && !_cronAutoRefreshTimer) {
@@ -16520,6 +16584,163 @@ def api_cron_runs(job_id):
     if result is None:
         return jsonify({'error': 'Gateway unavailable'}), 502
     return jsonify(result)
+
+
+@bp_crons.route('/api/cron/health')
+def api_cron_health():
+    """Per-cron health summary: run stats, cost anomalies, dead-cron detection, monthly projection."""
+    jobs = _get_crons()
+    # Augment with run history from gateway
+    result = []
+    analytics = _compute_transcript_analytics()
+    sessions = [s for s in analytics.get('sessions', []) if s.get('is_cron_candidate')]
+
+    for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        job_id = job.get('id', '')
+        job_name = job.get('name', job_id)
+        state = job.get('state') or {}
+        enabled = job.get('enabled', True)
+
+        # Fetch run history from gateway
+        runs_data = _gw_invoke('cron', {'action': 'runs', 'jobId': job_id, 'limit': 30}) or {}
+        runs = runs_data.get('runs', [])
+
+        # Compute run stats
+        total_runs = len(runs)
+        error_runs = sum(1 for r in runs if r.get('status') == 'error')
+        ok_runs = total_runs - error_runs
+        success_rate = round(ok_runs / total_runs * 100, 1) if total_runs > 0 else None
+        durations = [r.get('durationMs', 0) for r in runs if r.get('durationMs')]
+        avg_duration_ms = int(sum(durations) / len(durations)) if durations else None
+
+        # Cost per run from matched sessions
+        run_costs = []
+        for sess in sessions:
+            best_score = 0
+            for idx, j in enumerate(jobs):
+                if j.get('id') == job_id:
+                    score = _score_cron_match(sess, j)
+                    if score > best_score:
+                        best_score = score
+            if best_score >= 20:
+                cost = float(sess.get('cost_usd', 0) or 0)
+                if cost > 0:
+                    run_costs.append(cost)
+
+        avg_cost = round(sum(run_costs) / len(run_costs), 6) if run_costs else 0
+        total_cost = round(sum(run_costs), 6)
+
+        # Monthly projection based on schedule interval
+        monthly_projection = None
+        schedule = job.get('schedule') or {}
+        try:
+            interval_ms = None
+            sched_kind = schedule.get('kind', '')
+            if sched_kind == 'every':
+                interval_ms = float(schedule.get('everyMs', 0))
+            elif sched_kind == 'cron':
+                # Rough: count expected runs per month from cron expr
+                # Simplistic: assume hourly if "*/N" pattern
+                expr = schedule.get('expr', '')
+                if expr:
+                    parts = expr.split()
+                    if len(parts) >= 5:
+                        minute_part = parts[0]
+                        if '/' in minute_part:
+                            every_n = int(minute_part.split('/')[1])
+                            interval_ms = every_n * 60 * 1000
+                        elif minute_part == '*':
+                            interval_ms = 60 * 1000
+                        else:
+                            # hourly or daily
+                            hour_part = parts[1]
+                            if hour_part == '*':
+                                interval_ms = 60 * 60 * 1000
+                            else:
+                                interval_ms = 24 * 60 * 60 * 1000
+            if interval_ms and interval_ms > 0 and avg_cost > 0:
+                runs_per_month = (30 * 24 * 60 * 60 * 1000) / interval_ms
+                monthly_projection = round(runs_per_month * avg_cost, 4)
+        except Exception:
+            pass
+
+        # Anomaly: cost spike (last run > 2x avg)
+        cost_spike = False
+        last_run_cost = run_costs[0] if run_costs else 0
+        if len(run_costs) >= 3 and last_run_cost > 0:
+            hist_avg = sum(run_costs[1:]) / len(run_costs[1:])
+            if hist_avg > 0 and last_run_cost > hist_avg * 2:
+                cost_spike = True
+
+        # Dead cron: enabled but hasn't run in expected window
+        dead_cron = False
+        last_run_at_ms = state.get('lastRunAtMs')
+        if enabled and last_run_at_ms:
+            elapsed_ms = _time_now_ms() - int(last_run_at_ms)
+            try:
+                interval_ms2 = None
+                if sched_kind == 'every':
+                    interval_ms2 = float(schedule.get('everyMs', 0))
+                elif sched_kind == 'cron':
+                    expr2 = schedule.get('expr', '')
+                    if expr2:
+                        parts2 = expr2.split()
+                        if len(parts2) >= 2:
+                            hour_part2 = parts2[1]
+                            interval_ms2 = (60 * 60 * 1000) if hour_part2 == '*' else (24 * 60 * 60 * 1000)
+                if interval_ms2 and interval_ms2 > 0:
+                    dead_cron = elapsed_ms > interval_ms2 * 2
+            except Exception:
+                pass
+
+        # Consecutive failures
+        consecutive_failures = state.get('consecutiveFailures', 0) or 0
+
+        result.append({
+            'id': job_id,
+            'name': job_name,
+            'enabled': enabled,
+            'schedule': schedule,
+            'state': state,
+            'totalRuns': total_runs,
+            'errorRuns': error_runs,
+            'successRate': success_rate,
+            'avgDurationMs': avg_duration_ms,
+            'avgCostUsd': avg_cost,
+            'totalCostUsd': total_cost,
+            'monthlyProjection': monthly_projection,
+            'costSpike': cost_spike,
+            'deadCron': dead_cron,
+            'consecutiveFailures': int(consecutive_failures),
+            'recentRuns': runs[:10],
+        })
+
+    # Summary stats
+    total_jobs = len(result)
+    healthy = sum(1 for j in result if not j['deadCron'] and j['consecutiveFailures'] == 0 and j['enabled'])
+    dead = sum(1 for j in result if j['deadCron'])
+    errored = sum(1 for j in result if j['consecutiveFailures'] > 0)
+    cost_spikes = sum(1 for j in result if j['costSpike'])
+
+    return jsonify({
+        'jobs': result,
+        'summary': {
+            'total': total_jobs,
+            'healthy': healthy,
+            'dead': dead,
+            'errored': errored,
+            'costSpikes': cost_spikes,
+        }
+    })
+
+
+def _time_now_ms():
+    """Current time in milliseconds."""
+    import time
+    return int(time.time() * 1000)
+
 
 
 def _find_log_file(ds):
