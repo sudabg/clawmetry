@@ -1,8 +1,8 @@
-# Contributing to OpenClaw Dashboard
+# Contributing to ClawMetry
 
 Thanks for your interest in contributing! 🦞
 
-OpenClaw Dashboard is built to be **simple, fast, and useful** for personal AI agent observability. Contributions that align with these principles are always welcome.
+ClawMetry is built to be **simple, fast, and useful** for personal AI agent observability. Contributions that align with these principles are always welcome.
 
 ---
 
@@ -212,7 +212,7 @@ How would you personally use this feature?
 
 ## 🏆 Recognition
 
-Contributors who help improve OpenClaw Dashboard will be:
+Contributors who help improve ClawMetry will be:
 - Added to a CONTRIBUTORS section in the README
 - Mentioned in release notes for significant contributions
 - Given credit in any blog posts or talks about the project
@@ -227,8 +227,8 @@ For testing against real cloud deployments or verifying ClawMetry Cloud integrat
 
 ## 📄 License
 
-By contributing to OpenClaw Dashboard, you agree that your contributions will be licensed under the same MIT License that covers the project.
+By contributing to ClawMetry, you agree that your contributions will be licensed under the same MIT License that covers the project.
 
 ---
 
-**Thanks for making OpenClaw Dashboard better! 🦞**
+**Thanks for making ClawMetry better! 🦞**
